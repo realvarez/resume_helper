@@ -1,0 +1,36 @@
+{# Stage 2 of the optional intake: clarifying questions about the candidate's experience. #}
+<div class="max-w-3xl mx-auto">
+    <h1 class="text-2xl font-bold tracking-tight">A few quick questions</h1>
+    <p class="mt-1 text-sm text-slate-500">
+        Your answers let us strengthen your résumé with real numbers and details.
+        Anything you leave blank is simply skipped.
+    </p>
+
+    <form class="mt-6 bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-5" method="post"
+        action="/generate" hx-post="/generate" hx-target="#app-output" hx-swap="innerHTML show:window:top"
+        hx-indicator="#loading-overlay" hx-disabled-elt="find button">
+        <input type="hidden" name="questions_stage" value="1">
+        <input type="hidden" name="resume_text" value="{{ resume_text }}">
+        <input type="hidden" name="extra_context" value="{{ extra_context }}">
+        <input type="hidden" name="job_description" value="{{ job_description }}">
+        <input type="hidden" name="company" value="{{ company }}">
+        <input type="hidden" name="seniority" value="{{ seniority }}">
+
+        {% for question in questions %}
+        <div>
+            <input type="hidden" name="question" value="{{ question }}">
+            <label class="block text-sm font-medium mb-1.5">{{ loop.index }}. {{ question }}</label>
+            <textarea name="answer" rows="2" placeholder="Your answer (optional)…"
+                class="w-full rounded-lg border-slate-300 border p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+        </div>
+        {% endfor %}
+
+        <div class="flex items-center gap-4 pt-2">
+            <button type="submit"
+                class="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition">
+                Generate my application kit
+            </button>
+            <span class="text-xs text-slate-400">Blank answers are skipped — generation takes 30–90 s.</span>
+        </div>
+    </form>
+</div>

@@ -1,0 +1,729 @@
+{% extends "base.html" %}
+{% block title %}Step 1: Intake & History — Resume Worker{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+
+    {# Screen 1 Subheader Banner #}
+    <div class="bg-white border border-slate-200/80 rounded-2xl p-6 sm:p-7 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 mb-1.5">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2.5 py-0.5 rounded-full">
+                    Ordered Flow: Step 01 of 03
+                </span>
+                <span class="text-xs text-slate-400 font-medium">Linear Craft Workspace</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+                Intake & Candidate History
+            </h1>
+            <p class="text-sm text-slate-500 mt-1 max-w-2xl leading-relaxed">
+                Provide your candidate background and target job posting. The alignment engine matches core competencies and recalibrates for Canadian ATS standards.
+            </p>
+        </div>
+        <div class="shrink-0 flex sm:flex-col items-end justify-between sm:justify-center gap-2">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
+                <span class="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></span>
+                Step 1 Active
+            </span>
+            {% if draft_id %}
+            <span class="text-[11px] text-slate-400 font-mono">Draft: {{ draft_id }}</span>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if not llm_ready %}
+    <div class="rounded-xl border border-amber-300 bg-amber-50/80 p-4 flex items-start gap-3">
+        <span class="text-amber-600 text-lg">⚠️</span>
+        <div class="text-xs text-amber-800 leading-relaxed">
+            <strong class="font-semibold">No LLM API key detected:</strong> Please copy <code>.env.example</code> to <code>.env</code> and configure <code>LLM_API_KEY</code> before running alignment analysis.
+        </div>
+    </div>
+    {% endif %}
+
+    {% if draft_id %}
+    <div class="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3.5 flex items-center justify-between gap-3 text-xs text-indigo-900">
+        <div class="flex items-center gap-2">
+            <span class="text-indigo-600 font-bold">ℹ️</span>
+            <span>Restored candidate data from draft <strong>{{ draft_id }}</strong>. You can update any fields and re-run alignment.</span>
+        </div>
+        <a href="/" class="text-xs font-semibold text-indigo-600 hover:underline">Start Fresh</a>
+    </div>
+    {% endif %}
+
+    <form id="intake-form" method="post" action="/match" enctype="multipart/form-data"
+          hx-post="/match" hx-indicator="#loading-overlay" class="space-y-6 pb-24">
+
+        {# CARD A: RÉSUMÉ DUAL INPUT SYSTEM #}
+        <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                <div>
+                    <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 text-xs font-bold grid place-items-center">A</span>
+                        <span>Candidate Résumé</span>
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">Required</span>
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Drag-and-drop your résumé file or paste raw text with syntax validation.</p>
+                </div>
+
+                {# Segmented Tab Toggle #}
+                <div class="bg-slate-100 p-1 rounded-xl flex items-center self-start sm:self-auto text-xs font-medium border border-slate-200/60">
+                    <button type="button" id="tab-mode-upload"
+                            class="segmented-btn active px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5">
+                        <span>📄 File Upload</span>
+                        <span class="text-[10px] text-slate-400 font-normal">PDF/DOCX/MD</span>
+                    </button>
+                    <button type="button" id="tab-mode-paste"
+                            class="segmented-btn px-3.5 py-1.5 rounded-lg text-slate-600 transition flex items-center gap-1.5">
+                        <span>📝 Paste Raw Text</span>
+                        <span class="text-[10px] text-slate-400 font-normal">Syntax Check</span>
+                    </button>
+                </div>
+            </div>
+
+            {# Mode 1: Drag-and-Drop Dropzone #}
+            <div id="section-mode-upload" class="space-y-3">
+                <div id="resume-dropzone"
+                     class="dropzone rounded-xl p-8 text-center cursor-pointer border-2 border-dashed border-slate-300 hover:border-indigo-400 transition flex flex-col items-center justify-center min-h-[170px]">
+                    <input type="file" id="resume-file-input" name="resume_file" accept=".pdf,.docx,.txt,.md" class="sr-only">
+                    
+                    <div id="dropzone-idle" class="flex flex-col items-center">
+                        <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 grid place-items-center mb-3 text-xl shadow-xs">
+                            📥
+                        </div>
+                        <p class="text-sm font-semibold text-slate-800">
+                            Drag & drop your résumé here, or <span class="text-indigo-600 underline hover:text-indigo-500">browse file</span>
+                        </p>
+                        <p class="text-xs text-slate-400 mt-1">
+                            Supports PDF, DOCX, Markdown (.md), and TXT · Max 5 MB
+                        </p>
+                    </div>
+
+                    <div id="dropzone-parsing" class="hidden flex-col items-center">
+                        <div class="w-8 h-8 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-2"></div>
+                        <p class="text-xs font-semibold text-indigo-700">Parsing document structure & ATS metrics…</p>
+                    </div>
+                </div>
+
+                {# Parsed Status Card #}
+                <div id="parsed-status-card" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-4 transition">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-white border border-slate-200 shadow-xs grid place-items-center text-lg" id="parsed-file-icon">
+                                📄
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h4 class="text-sm font-bold text-slate-900 truncate max-w-xs sm:max-w-sm" id="parsed-file-name">filename.pdf</h4>
+                                    <span id="parsed-status-pill" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                        ● Parsed & Ready
+                                    </span>
+                                </div>
+                                <p class="text-xs text-slate-500 mt-0.5" id="parsed-file-stats">
+                                    Calculating metrics…
+                                </p>
+                            </div>
+                        </div>
+                        <button type="button" id="remove-file-btn" class="text-xs text-slate-400 hover:text-red-600 px-2 py-1 rounded-md hover:bg-red-50 transition font-medium">
+                            ✕ Remove
+                        </button>
+                    </div>
+
+                    {# Extracted Structure Badges #}
+                    <div class="mt-3 pt-3 border-t border-slate-200/80 flex flex-wrap items-center gap-1.5" id="parsed-sections-container">
+                        <span class="text-[11px] text-slate-400 font-medium mr-1">Detected Sections:</span>
+                        <!-- Injected via JS -->
+                    </div>
+
+                    {# Snippet drawer #}
+                    <div id="parsed-snippet-box" class="mt-2.5 p-2.5 bg-white border border-slate-200/80 rounded-lg text-xs text-slate-600 font-mono leading-relaxed line-clamp-2">
+                    </div>
+                </div>
+
+                {# File Parse Error Card #}
+                <div id="parsed-error-card" class="hidden bg-rose-50 border border-rose-200 rounded-xl p-4 text-xs text-rose-800 flex items-start gap-2.5">
+                    <span class="text-base">⚠️</span>
+                    <div class="flex-1">
+                        <p class="font-semibold" id="parsed-error-msg">Could not extract readable text.</p>
+                        <p class="mt-0.5 text-rose-600">Consider switching to the <strong>Paste Raw Text</strong> tab to submit your résumé content.</p>
+                    </div>
+                    <button type="button" id="dismiss-error-btn" class="text-rose-500 hover:text-rose-800 font-bold">✕</button>
+                </div>
+            </div>
+
+            {# Mode 2: Paste Raw Text with Live Syntax Validation #}
+            <div id="section-mode-paste" class="hidden space-y-3">
+                <div class="flex items-center justify-between text-xs text-slate-500">
+                    <span class="font-medium">Type or paste raw markdown / plain text résumé:</span>
+                    <button type="button" id="btn-insert-sample" class="text-indigo-600 hover:text-indigo-700 font-semibold hover:underline">
+                        + Insert Sample Canadian Template
+                    </button>
+                </div>
+
+                <div class="relative">
+                    <textarea id="resume-text-input" name="resume_text" rows="9"
+                              placeholder="# John Doe&#10;Senior Software Engineer · Toronto, ON · john@example.com · (416) 555-0199&#10;&#10;## Professional Experience&#10;### Senior Software Engineer | CloudTech Solutions (2021 – Present)&#10;- Architected distributed backend microservices processing 15M daily requests…&#10;&#10;## Technical Skills&#10;Python, TypeScript, AWS, PostgreSQL, Docker, Kubernetes&#10;&#10;## Education&#10;B.S. in Computer Science | University of Toronto"
+                              class="w-full rounded-xl border border-slate-300 p-3.5 text-xs font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none leading-relaxed text-slate-800 bg-slate-50/50">{% if inputs and inputs.resume_text %}{{ inputs.resume_text }}{% endif %}</textarea>
+                </div>
+
+                {# Live Syntax Validation Bar #}
+                <div class="bg-slate-50 border border-slate-200/90 rounded-xl p-3.5 space-y-2">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex items-center gap-1.5" id="syntax-health-indicator">
+                            <span class="w-2 h-2 rounded-full bg-slate-300" id="syntax-dot"></span>
+                            <span class="text-xs font-bold text-slate-600" id="syntax-status-text">Awaiting résumé input…</span>
+                        </div>
+                        <div class="text-[11px] font-mono text-slate-400" id="text-counters">
+                            0 words · 0 chars
+                        </div>
+                    </div>
+
+                    {# Section Detection Checklist #}
+                    <div class="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-200/60 text-xs">
+                        <span class="text-[11px] text-slate-400 font-medium mr-1">ATS Sections:</span>
+                        <span id="badge-contact" class="px-2 py-0.5 rounded-md bg-slate-200/70 text-slate-500 font-medium transition text-[11px]">
+                            — Contact Info
+                        </span>
+                        <span id="badge-experience" class="px-2 py-0.5 rounded-md bg-slate-200/70 text-slate-500 font-medium transition text-[11px]">
+                            — Experience
+                        </span>
+                        <span id="badge-education" class="px-2 py-0.5 rounded-md bg-slate-200/70 text-slate-500 font-medium transition text-[11px]">
+                            — Education
+                        </span>
+                        <span id="badge-skills" class="px-2 py-0.5 rounded-md bg-slate-200/70 text-slate-500 font-medium transition text-[11px]">
+                            — Skills
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# CARD C: TARGET JOB DESCRIPTION #}
+        <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                    <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 text-xs font-bold grid place-items-center">B</span>
+                        <span>Target Job Posting</span>
+                        <span class="text-xs font-normal text-slate-400">(Optional for targeted alignment)</span>
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                        Paste the job posting to trigger the 6-pillar match breakdown, or leave blank for a general Canadian format résumé.
+                    </p>
+                </div>
+                <button type="button" id="clear-job-desc-btn" class="text-xs text-slate-400 hover:text-slate-600 font-medium">
+                    Clear
+                </button>
+            </div>
+
+            <div class="relative">
+                <textarea id="job-desc-input" name="job_description" rows="7"
+                          placeholder="Paste the complete job posting here (Title, Requirements, Responsibilities, Preferred Qualifications)…"
+                          class="w-full rounded-xl border border-slate-300 p-3.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none leading-relaxed text-slate-800">{% if inputs and inputs.job_description %}{{ inputs.job_description }}{% endif %}</textarea>
+            </div>
+            <div class="flex items-center justify-between text-[11px] text-slate-400">
+                <span id="job-desc-counter">0 characters</span>
+                <span>Supports full recruiter postings with requirements</span>
+            </div>
+
+            <div class="grid sm:grid-cols-2 gap-3 pt-1 border-t border-slate-100">
+                <div>
+                    <label for="position-input" class="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Target Position / Job Title <span class="text-slate-400 font-normal">(Optional)</span>
+                    </label>
+                    <input type="text" id="position-input" name="position"
+                           value="{% if inputs and inputs.position %}{{ inputs.position }}{% endif %}"
+                           placeholder="e.g. Senior Backend Engineer (auto-inferred if blank)"
+                           class="w-full rounded-xl border border-slate-300 p-2.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800 bg-slate-50/50 focus:bg-white transition">
+                </div>
+                <div>
+                    <label for="company-input" class="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Target Company <span class="text-slate-400 font-normal">(Optional)</span>
+                    </label>
+                    <input type="text" id="company-input" name="company"
+                           value="{% if inputs and inputs.company %}{{ inputs.company }}{% endif %}"
+                           placeholder="e.g. Shopify, RBC (auto-inferred if blank)"
+                           class="w-full rounded-xl border border-slate-300 p-2.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800 bg-slate-50/50 focus:bg-white transition">
+                </div>
+            </div>
+        </div>
+
+        {# CARD B: EXTRA CANDIDATE CONTEXT (DUAL INPUT SYSTEM) #}
+        <div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                <div>
+                    <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 text-xs font-bold grid place-items-center">C</span>
+                        <span>Extra Candidate Context & Differentiators</span>
+                        <span class="text-xs font-normal text-slate-400">(Optional Edge)</span>
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                        Add performance reviews, quantified achievements, or transition context to surface missing achievements.
+                    </p>
+                </div>
+
+                {# Segmented Tab Toggle for Extra Context #}
+                <div class="bg-slate-100 p-1 rounded-xl flex items-center self-start sm:self-auto text-xs font-medium border border-slate-200/60">
+                    <button type="button" id="tab-sup-files"
+                            class="segmented-btn active px-3 py-1.5 rounded-lg transition flex items-center gap-1.5">
+                        <span>📎 Supporting Files</span>
+                    </button>
+                    <button type="button" id="tab-sup-notes"
+                            class="segmented-btn px-3 py-1.5 rounded-lg text-slate-600 transition flex items-center gap-1.5">
+                        <span>✍️ Structured Notes</span>
+                    </button>
+                </div>
+            </div>
+
+            {# Extra Context Mode 1: Supporting Files Dropzone #}
+            <div id="section-sup-files" class="space-y-3">
+                <div id="supporting-dropzone"
+                     class="dropzone rounded-xl p-6 text-center cursor-pointer border-2 border-dashed border-slate-300 hover:border-indigo-400 transition flex flex-col items-center justify-center">
+                    <input type="file" id="supporting-files-input" name="supporting_files" multiple
+                           accept=".pdf,.docx,.txt,.md" class="sr-only">
+                    <span class="text-2xl mb-1">📎</span>
+                    <p class="text-xs font-semibold text-slate-700">
+                        Drag supporting files here, or <span class="text-indigo-600 underline">select files</span>
+                    </p>
+                    <p class="text-[11px] text-slate-400 mt-0.5">
+                        Performance reviews, project briefs, or LinkedIn export (PDF, DOCX, MD)
+                    </p>
+                </div>
+
+                {# Uploaded Files Chip List #}
+                <div id="supporting-chips-container" class="flex flex-wrap gap-2 empty:hidden"></div>
+                <div id="supporting-clear-wrapper" class="hidden text-right">
+                    <button type="button" id="clear-all-sup-btn" class="text-xs text-red-600 hover:underline">
+                        Clear all attachments
+                    </button>
+                </div>
+            </div>
+
+            {# Extra Context Mode 2: Structured Notes #}
+            <div id="section-sup-notes" class="hidden space-y-3">
+                <textarea id="extra-notes-input" name="extra_notes" rows="4"
+                          placeholder="Candidate edge & achievements:&#10;• Quantified KPIs: Reduced infrastructure costs by 32% ($45k/mo) through ECS optimization&#10;• Certifications: AWS Certified Solutions Architect Professional (2024)&#10;• Career narrative: Transitioning from fintech to healthcare SaaS; strong focus on privacy & HIPAA/PIPEDA"
+                          class="w-full rounded-xl border border-slate-300 p-3.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none leading-relaxed text-slate-800 bg-slate-50/50">{% if inputs and inputs.extra_context %}{{ inputs.extra_context }}{% endif %}</textarea>
+                <p class="text-[11px] text-slate-400">
+                    Tip: Highlight metrics and certifications that are not emphasized in your base résumé.
+                </p>
+            </div>
+        </div>
+
+        {# OPTIONS & FLOW PREVIEW #}
+        <div class="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex items-start gap-3">
+                <input type="checkbox" id="ask-questions" name="ask_questions" checked
+                       class="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                <label for="ask-questions" class="text-xs text-slate-600">
+                    <span class="font-bold text-slate-800 block text-sm">Ask clarifying questions to strengthen gap areas</span>
+                    <span class="text-slate-400">Generates targeted prompts on Step 2 to surface real metrics for missing requirements (Recommended).</span>
+                </label>
+            </div>
+            {% if has_tavily %}
+            <span class="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full font-medium shrink-0 self-start sm:self-auto">
+                ✓ Web Research Active
+            </span>
+            {% else %}
+            <span class="text-[11px] text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full shrink-0 self-start sm:self-auto">
+                Offline AI Mode
+            </span>
+            {% endif %}
+        </div>
+
+        {# FLOATING BOTTOM ACTION DOCK #}
+        <div class="fixed bottom-0 inset-x-0 z-30 floating-dock border-t border-slate-200/80 py-3.5 px-4 shadow-lg">
+            <div class="max-w-4xl mx-auto flex items-center justify-between gap-4">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span class="text-xs font-medium text-slate-600" id="dock-status-label">
+                        Ready for Step 1 Analysis
+                    </span>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <button type="submit" id="submit-step1-btn"
+                            class="bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-semibold px-6 py-2.5 rounded-xl text-sm shadow-sm transition flex items-center gap-2 disabled:opacity-50">
+                        <span>Proceed to Step 2: Role Match & Alignment</span>
+                        <span aria-hidden="true">&rarr;</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </form>
+</div>
+
+{# Interactive Step 1 Controller Script #}
+<script>
+(function () {
+    // -------------------------------------------------------------
+    // Segmented Mode Switching for Résumé Input
+    // -------------------------------------------------------------
+    const tabUpload = document.getElementById('tab-mode-upload');
+    const tabPaste = document.getElementById('tab-mode-paste');
+    const sectionUpload = document.getElementById('section-mode-upload');
+    const sectionPaste = document.getElementById('section-mode-paste');
+
+    function setResumeMode(mode) {
+        if (mode === 'upload') {
+            tabUpload.classList.add('active');
+            tabPaste.classList.remove('active');
+            sectionUpload.classList.remove('hidden');
+            sectionPaste.classList.add('hidden');
+        } else {
+            tabPaste.classList.add('active');
+            tabUpload.classList.remove('active');
+            sectionPaste.classList.remove('hidden');
+            sectionUpload.classList.add('hidden');
+            runSyntaxValidation();
+        }
+    }
+
+    tabUpload.addEventListener('click', () => setResumeMode('upload'));
+    tabPaste.addEventListener('click', () => setResumeMode('paste'));
+
+    // -------------------------------------------------------------
+    // Drag & Drop Résumé Upload with Instant /api/parse-preview
+    // -------------------------------------------------------------
+    const dropzone = document.getElementById('resume-dropzone');
+    const fileInput = document.getElementById('resume-file-input');
+    const dropzoneIdle = document.getElementById('dropzone-idle');
+    const dropzoneParsing = document.getElementById('dropzone-parsing');
+    const parsedCard = document.getElementById('parsed-status-card');
+    const parsedErrorCard = document.getElementById('parsed-error-card');
+    const parsedFileName = document.getElementById('parsed-file-name');
+    const parsedFileStats = document.getElementById('parsed-file-stats');
+    const parsedSections = document.getElementById('parsed-sections-container');
+    const parsedSnippet = document.getElementById('parsed-snippet-box');
+    const removeFileBtn = document.getElementById('remove-file-btn');
+    const dismissErrorBtn = document.getElementById('dismiss-error-btn');
+
+    dropzone.addEventListener('click', () => fileInput.click());
+
+    ['dragenter', 'dragover'].forEach(name => {
+        dropzone.addEventListener(name, (e) => {
+            e.preventDefault();
+            dropzone.classList.add('drag-active');
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(name => {
+        dropzone.addEventListener(name, (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('drag-active');
+        });
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            fileInput.files = e.dataTransfer.files;
+            handleFileSelected(fileInput.files[0]);
+        }
+    });
+
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files && fileInput.files.length > 0) {
+            handleFileSelected(fileInput.files[0]);
+        }
+    });
+
+    async function handleFileSelected(file) {
+        if (!file) return;
+        dropzoneIdle.classList.add('hidden');
+        dropzoneParsing.classList.remove('hidden');
+        dropzoneParsing.classList.add('flex');
+        parsedCard.classList.add('hidden');
+        parsedErrorCard.classList.add('hidden');
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const resp = await fetch('/api/parse-preview', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await resp.json();
+
+            dropzoneParsing.classList.add('hidden');
+            dropzoneParsing.classList.remove('flex');
+            dropzoneIdle.classList.remove('hidden');
+
+            if (resp.ok && data.ok) {
+                // Populate parsed status card
+                parsedFileName.textContent = data.filename;
+                const sizeKb = (file.size / 1024).toFixed(1);
+                parsedFileStats.textContent = `${sizeKb} KB · ${data.word_count.toLocaleString()} words · ${data.char_count.toLocaleString()} characters`;
+
+                // Sections badges
+                parsedSections.innerHTML = '<span class="text-[11px] text-slate-400 font-medium mr-1">Detected Sections:</span>';
+                if (data.sections && data.sections.length > 0) {
+                    data.sections.forEach(sec => {
+                        const span = document.createElement('span');
+                        span.className = 'px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-semibold border border-indigo-200 text-[10px]';
+                        span.textContent = `✓ ${sec}`;
+                        parsedSections.appendChild(span);
+                    });
+                } else {
+                    const span = document.createElement('span');
+                    span.className = 'text-[11px] text-slate-400 italic';
+                    span.textContent = 'General format (No explicit standard headers)';
+                    parsedSections.appendChild(span);
+                }
+
+                parsedSnippet.textContent = data.snippet || 'Ready for alignment parsing.';
+                parsedCard.classList.remove('hidden');
+                updateDockStatus();
+            } else {
+                document.getElementById('parsed-error-msg').textContent = data.error || 'Failed to parse file.';
+                parsedErrorCard.classList.remove('hidden');
+            }
+        } catch (err) {
+            dropzoneParsing.classList.add('hidden');
+            dropzoneParsing.classList.remove('flex');
+            dropzoneIdle.classList.remove('hidden');
+            document.getElementById('parsed-error-msg').textContent = 'Network or parsing error. Please try pasting raw text.';
+            parsedErrorCard.classList.remove('hidden');
+        }
+    }
+
+    removeFileBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        fileInput.value = '';
+        parsedCard.classList.add('hidden');
+        updateDockStatus();
+    });
+
+    dismissErrorBtn.addEventListener('click', () => {
+        parsedErrorCard.classList.add('hidden');
+    });
+
+    // -------------------------------------------------------------
+    // Raw Text Live Syntax Validation Engine
+    // -------------------------------------------------------------
+    const textInput = document.getElementById('resume-text-input');
+    const syntaxDot = document.getElementById('syntax-dot');
+    const syntaxStatus = document.getElementById('syntax-status-text');
+    const textCounters = document.getElementById('text-counters');
+    const badgeContact = document.getElementById('badge-contact');
+    const badgeExp = document.getElementById('badge-experience');
+    const badgeEdu = document.getElementById('badge-education');
+    const badgeSkills = document.getElementById('badge-skills');
+    const btnSample = document.getElementById('btn-insert-sample');
+
+    function runSyntaxValidation() {
+        const val = textInput.value;
+        const charCount = val.length;
+        const words = val.trim() ? val.trim().split(/\s+/).length : 0;
+        textCounters.textContent = `${words} words · ${charCount} chars`;
+
+        if (charCount === 0) {
+            syntaxDot.className = 'w-2 h-2 rounded-full bg-slate-300';
+            syntaxStatus.className = 'text-xs font-bold text-slate-500';
+            syntaxStatus.textContent = 'Awaiting résumé input…';
+            resetBadge(badgeContact, 'Contact Info');
+            resetBadge(badgeExp, 'Experience');
+            resetBadge(badgeEdu, 'Education');
+            resetBadge(badgeSkills, 'Skills');
+            return;
+        }
+
+        // Section syntax checks
+        const hasContact = /(email|phone|linkedin|github|contact|location|\.com|\d{3}-\d{3})/i.test(val);
+        const hasExp = /(experience|employment|work history|career|roles|projects)/i.test(val);
+        const hasEdu = /(education|university|college|degree|bachelor|master|phd|diploma)/i.test(val);
+        const hasSkills = /(skills|technologies|proficiencies|tools|stack|languages)/i.test(val);
+
+        updateBadge(badgeContact, 'Contact Info', hasContact);
+        updateBadge(badgeExp, 'Experience', hasExp);
+        updateBadge(badgeEdu, 'Education', hasEdu);
+        updateBadge(badgeSkills, 'Skills', hasSkills);
+
+        const score = [hasContact, hasExp, hasEdu, hasSkills].filter(Boolean).length;
+
+        if (charCount >= 80 && score >= 3) {
+            syntaxDot.className = 'w-2 h-2 rounded-full bg-emerald-500';
+            syntaxStatus.className = 'text-xs font-bold text-emerald-700';
+            syntaxStatus.textContent = `✓ Valid ATS Structure (${score}/4 Key Sections Detected)`;
+        } else if (charCount >= 80) {
+            syntaxDot.className = 'w-2 h-2 rounded-full bg-amber-500';
+            syntaxStatus.className = 'text-xs font-bold text-amber-700';
+            syntaxStatus.textContent = `⚠️ Partial Structure (${score}/4 Sections — Add Experience or Education)`;
+        } else {
+            syntaxDot.className = 'w-2 h-2 rounded-full bg-rose-500';
+            syntaxStatus.className = 'text-xs font-bold text-rose-700';
+            syntaxStatus.textContent = `⚠️ Too short (minimum 80 chars needed for alignment)`;
+        }
+        updateDockStatus();
+    }
+
+    function updateBadge(el, name, present) {
+        if (present) {
+            el.className = 'px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-semibold border border-emerald-200 transition text-[11px]';
+            el.textContent = `✓ ${name}`;
+        } else {
+            resetBadge(el, name);
+        }
+    }
+
+    function resetBadge(el, name) {
+        el.className = 'px-2 py-0.5 rounded-md bg-slate-200/70 text-slate-500 font-medium transition text-[11px]';
+        el.textContent = `— ${name}`;
+    }
+
+    textInput.addEventListener('input', runSyntaxValidation);
+
+    btnSample.addEventListener('click', () => {
+        textInput.value = `# Alexander Vance
+Senior Full Stack Engineer · Toronto, ON · alex@vance-cloud.ca · (416) 555-0182 · linkedin.com/in/alexvance
+
+## Professional Experience
+### Lead Cloud Engineer | Apex Financial Systems (2021 – Present)
+- Architected resilient AWS serverless microservices processing $40M daily volume with 99.99% uptime.
+- Spearheaded migration from legacy monolith to Docker & Kubernetes, cutting AWS infrastructure spend by 28%.
+- Mentored 6 intermediate engineers in CI/CD pipeline automation and clean architecture patterns.
+
+### Full Stack Developer | Maple Health Analytics (2018 – 2021)
+- Developed secure React/TypeScript clinical dashboard used by 12 hospital networks across Ontario.
+- Designed PostgreSQL read-replica database cluster, reducing clinical search latencies from 3.2s to 180ms.
+
+## Technical Skills
+- Languages: Python, TypeScript, Go, SQL, Bash
+- Frameworks & Tools: FastAPI, React, Node.js, Docker, Kubernetes, Terraform, PostgreSQL, Redis
+- Cloud & Platforms: AWS (ECS, Lambda, RDS, S3), GitHub Actions, Datadog
+
+## Education
+B.Sc. in Computer Science | University of Waterloo (2018)`;
+        runSyntaxValidation();
+    });
+
+    // If pre-filled text exists, switch to paste mode automatically
+    if (textInput.value.trim().length > 0) {
+        setResumeMode('paste');
+    }
+
+    // -------------------------------------------------------------
+    // Job Description Counter & Clear
+    // -------------------------------------------------------------
+    const jobDescInput = document.getElementById('job-desc-input');
+    const jobDescCounter = document.getElementById('job-desc-counter');
+    const clearJobBtn = document.getElementById('clear-job-desc-btn');
+
+    function updateJobCounter() {
+        jobDescCounter.textContent = `${jobDescInput.value.length.toLocaleString()} characters`;
+    }
+
+    jobDescInput.addEventListener('input', updateJobCounter);
+    clearJobBtn.addEventListener('click', () => {
+        jobDescInput.value = '';
+        updateJobCounter();
+    });
+    updateJobCounter();
+
+    // -------------------------------------------------------------
+    // Supporting Context Dual Input (Files vs Notes)
+    // -------------------------------------------------------------
+    const tabSupFiles = document.getElementById('tab-sup-files');
+    const tabSupNotes = document.getElementById('tab-sup-notes');
+    const sectionSupFiles = document.getElementById('section-sup-files');
+    const sectionSupNotes = document.getElementById('section-sup-notes');
+
+    tabSupFiles.addEventListener('click', () => {
+        tabSupFiles.classList.add('active');
+        tabSupNotes.classList.remove('active');
+        sectionSupFiles.classList.remove('hidden');
+        sectionSupNotes.classList.add('hidden');
+    });
+
+    tabSupNotes.addEventListener('click', () => {
+        tabSupNotes.classList.add('active');
+        tabSupFiles.classList.remove('active');
+        sectionSupNotes.classList.remove('hidden');
+        sectionSupFiles.classList.add('hidden');
+    });
+
+    const supDropzone = document.getElementById('supporting-dropzone');
+    const supInput = document.getElementById('supporting-files-input');
+    const supChips = document.getElementById('supporting-chips-container');
+    const supClearWrap = document.getElementById('supporting-clear-wrapper');
+    const clearAllSupBtn = document.getElementById('clear-all-sup-btn');
+
+    supDropzone.addEventListener('click', () => supInput.click());
+
+    ['dragenter', 'dragover'].forEach(name => {
+        supDropzone.addEventListener(name, (e) => {
+            e.preventDefault();
+            supDropzone.classList.add('drag-active');
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(name => {
+        supDropzone.addEventListener(name, (e) => {
+            e.preventDefault();
+            supDropzone.classList.remove('drag-active');
+        });
+    });
+
+    supDropzone.addEventListener('drop', (e) => {
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            supInput.files = e.dataTransfer.files;
+            renderSupportingChips();
+        }
+    });
+
+    supInput.addEventListener('change', renderSupportingChips);
+
+    function renderSupportingChips() {
+        supChips.innerHTML = '';
+        const files = Array.from(supInput.files || []);
+        if (files.length === 0) {
+            supClearWrap.classList.add('hidden');
+            return;
+        }
+
+        supClearWrap.classList.remove('hidden');
+        files.forEach((f, idx) => {
+            const chip = document.createElement('div');
+            chip.className = 'inline-flex items-center gap-1.5 bg-slate-100 border border-slate-200 text-slate-800 text-xs px-2.5 py-1 rounded-lg';
+            const sizeKb = (f.size / 1024).toFixed(0);
+            chip.innerHTML = `
+                <span>📎</span>
+                <span class="font-medium max-w-[140px] truncate">${f.name}</span>
+                <span class="text-[10px] text-slate-400">(${sizeKb}KB)</span>
+            `;
+            supChips.appendChild(chip);
+        });
+    }
+
+    clearAllSupBtn.addEventListener('click', () => {
+        supInput.value = '';
+        renderSupportingChips();
+    });
+
+    // -------------------------------------------------------------
+    // Dock Status Update
+    // -------------------------------------------------------------
+    const dockStatusLabel = document.getElementById('dock-status-label');
+    function updateDockStatus() {
+        const hasFile = fileInput.files && fileInput.files.length > 0;
+        const hasText = textInput.value.trim().length >= 80;
+        if (hasFile || hasText) {
+            dockStatusLabel.textContent = '✓ Résumé Captured · Ready for Role Match & Alignment';
+        } else {
+            dockStatusLabel.textContent = 'Step 1: Provide your résumé (upload or paste raw text)';
+        }
+    }
+
+    updateDockStatus();
+
+    // Custom form submit handling to ensure loading overlay title reflects Step 1
+    document.getElementById('intake-form').addEventListener('submit', () => {
+        const titleEl = document.getElementById('loading-title');
+        const descEl = document.getElementById('loading-desc');
+        if (titleEl) titleEl.textContent = 'Analyzing Role Match & Strategic Fit…';
+        if (descEl) descEl.textContent = 'Recruiter AI is evaluating 6 key competency pillars against Canadian ATS standards.';
+    });
+
+})();
+</script>
+{% endblock %}

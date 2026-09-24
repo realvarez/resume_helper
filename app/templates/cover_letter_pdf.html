@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+{# ATS-friendly tailored cover letter template for WeasyPrint #}
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>{{ resume.contact.name }} — Cover Letter</title>
+    <style>
+        @page {
+            size: letter;
+            margin: 0.8in 0.85in;
+            @bottom-center {
+                content: "";
+            }
+        }
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 10pt;
+            line-height: 1.5;
+            color: #1a202c;
+            margin: 0;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 1.5px solid #2d3748;
+            padding-bottom: 10pt;
+            margin-bottom: 18pt;
+        }
+        h1 {
+            font-size: 16pt;
+            letter-spacing: -0.5px;
+            margin: 0 0 4pt 0;
+            color: #0f172a;
+        }
+        .contact {
+            font-size: 8.5pt;
+            color: #4a5568;
+            margin: 0;
+        }
+        .contact span {
+            margin: 0 6pt;
+        }
+        .date-line {
+            font-size: 9.5pt;
+            color: #4a5568;
+            margin-bottom: 14pt;
+        }
+        .recipient-block {
+            font-size: 9.5pt;
+            line-height: 1.4;
+            color: #2d3748;
+            margin-bottom: 16pt;
+        }
+        .subject-line {
+            font-size: 10.5pt;
+            font-weight: bold;
+            color: #0f172a;
+            margin-bottom: 14pt;
+        }
+        .greeting {
+            margin-bottom: 12pt;
+            font-weight: bold;
+            color: #0f172a;
+        }
+        .body-p {
+            margin: 0 0 12pt 0;
+            text-align: justify;
+        }
+        .closing-block {
+            margin-top: 18pt;
+        }
+        .signature-name {
+            font-weight: bold;
+            margin-top: 24pt;
+            font-size: 10.5pt;
+            color: #0f172a;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{ resume.contact.name }}</h1>
+        <p class="contact">
+            {% if resume.contact.email %}<span>{{ resume.contact.email }}</span>{% endif %}
+            {% if resume.contact.phone %}<span>{{ resume.contact.phone }}</span>{% endif %}
+            {% if resume.contact.location %}<span>{{ resume.contact.location }}</span>{% endif %}
+            {% if resume.contact.linkedin %}<span>{{ resume.contact.linkedin }}</span>{% endif %}
+            {% if resume.contact.website %}<span>{{ resume.contact.website }}</span>{% endif %}
+        </p>
+    </div>
+
+    <div class="date-line">{{ date_str }}</div>
+
+    <div class="recipient-block">
+        <strong>Hiring Team &amp; Recruitment Manager</strong><br>
+        {% if company %}{{ company }}<br>{% endif %}
+        {% if target_country %}{{ target_country }}{% endif %}
+    </div>
+
+    {% if position %}
+    <div class="subject-line">
+        RE: Application for {{ position }}{% if company %} at {{ company }}{% endif %}
+    </div>
+    {% endif %}
+
+    <div class="greeting">{{ cover_letter.greeting }}</div>
+
+    {% for p in cover_letter.body %}
+    <p class="body-p">{{ p }}</p>
+    {% endfor %}
+
+    <div class="closing-block">
+        <p style="margin: 0;">{{ cover_letter.closing }}</p>
+        <p class="signature-name">{{ resume.contact.name }}</p>
+    </div>
+</body>
+</html>

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+{# ATS-safe résumé: single column, standard fonts/headings, no tables, images or columns. #}
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>{{ resume.contact.name }} — Resume</title>
+    <style>
+        @page {
+            size: letter;
+            margin: 0.5in;
+
+            @bottom-center {
+                content: "";
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 9pt;
+            line-height: 1.25;
+            color: #000000;
+            margin: 0;
+        }
+
+        h1 {
+            font-size: 14.5pt;
+            margin: 0 0 2pt 0;
+            text-align: center;
+        }
+
+        .contact {
+            text-align: center;
+            font-size: 8pt;
+            margin-bottom: 3pt;
+        }
+
+        .contact span {
+            margin: 0 5pt;
+        }
+
+        h2 {
+            font-size: 10pt;
+            text-transform: uppercase;
+            border-bottom: 1px solid #000000;
+            padding-bottom: 2pt;
+            margin: 10pt 0 5pt 0;
+        }
+
+        h3 {
+            font-size: 9pt;
+            margin: 7pt 0 1pt 0;
+        }
+
+        .job-header {
+            font-size: 8pt;
+            color: #333333;
+            margin-bottom: 2pt;
+        }
+
+        .group-label {
+            font-weight: bold;
+            font-size: 9pt;
+            margin: 6pt 0 2pt 0;
+        }
+
+        .stack-line {
+            font-size: 8pt;
+            color: #333333;
+            font-style: italic;
+            margin: 0 0 3pt 0;
+        }
+
+        ul {
+            margin: 2pt 0 5pt 14pt;
+            padding: 0;
+        }
+
+        li {
+            margin-bottom: 2pt;
+        }
+
+        p {
+            margin: 0 0 5pt 0;
+        }
+
+        .skills-list {
+            margin-left: 14pt;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>{{ resume.contact.name }}</h1>
+    <p class="contact">
+        {% if resume.contact.email %}<span>{{ resume.contact.email }}</span>{% endif %}
+        {% if resume.contact.phone %}<span>{{ resume.contact.phone }}</span>{% endif %}
+        {% if resume.contact.location %}<span>{{ resume.contact.location }}</span>{% endif %}
+        {% if resume.contact.linkedin %}<span>{{ resume.contact.linkedin }}</span>{% endif %}
+        {% if resume.contact.website %}<span>{{ resume.contact.website }}</span>{% endif %}
+    </p>
+
+    <h2>Professional Summary</h2>
+    <p>{{ resume.professional_summary | bold }}</p>
+
+    <h2>Professional Experience</h2>
+    {% for job in resume.experience %}
+    <h3>{{ job.title }}{% if job.company %} — {{ job.company }}{% endif %}</h3>
+    <div class="job-header">
+        {{ job.start_date }} – {{ job.end_date }}{% if job.location %} | {{ job.location }}{% endif %}
+    </div>
+    {% if job.bullets %}
+    <ul>
+        {% for bullet in job.bullets %}<li>{{ bullet | bold }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+    {% if job.tech_stack %}
+    <p class="stack-line">Stack: {{ job.tech_stack | join(", ") }}.</p>
+    {% endif %}
+    {% for group in job.groups or [] %}
+    <p class="group-label">{{ group.label }}</p>
+    <ul>
+        {% for bullet in group.bullets %}<li>{{ bullet | bold }}</li>{% endfor %}
+    </ul>
+    {% if group.tech_stack %}
+    <p class="stack-line">Stack: {{ group.tech_stack | join(", ") }}.</p>
+    {% endif %}
+    {% endfor %}
+    {% endfor %}
+
+    {% if resume.education %}
+    <h2>Education</h2>
+    {% for edu in resume.education %}
+    <h3>{{ edu.degree }} — {{ edu.institution }}</h3>
+    <div class="job-header">
+        {% if edu.graduation_date %}{{ edu.graduation_date }}{% endif %}
+        {% if edu.location %} | {{ edu.location }}{% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if resume.certifications %}
+    <h2>Certifications</h2>
+    <ul class="skills-list">
+        {% for cert in resume.certifications %}<li>{{ cert }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if resume.languages %}
+    <h2>Languages</h2>
+    <ul class="skills-list">
+        {% for lang in resume.languages %}<li>{{ lang }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+</body>
+
+</html>

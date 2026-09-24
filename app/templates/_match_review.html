@@ -1,0 +1,339 @@
+    {# Screen 2 Subheader Banner #}
+    <div class="bg-white border border-slate-200/80 rounded-2xl p-6 sm:p-7 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 mb-1.5">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2.5 py-0.5 rounded-full">
+                    Ordered Flow: Step 02 of 03
+                </span>
+                <span class="text-xs text-slate-400 font-medium">Alignment Engine</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+                Role Match & Strategic Alignment
+            </h1>
+            <p class="text-sm text-slate-500 mt-1 max-w-2xl leading-relaxed">
+                Review your 6-pillar recruiter evaluation, confirm target company and seniority parameters, and address gap areas before generating your tailored deliverables.
+            </p>
+        </div>
+        <div class="shrink-0 flex sm:flex-col items-end justify-between sm:justify-center gap-2">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
+                <span class="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></span>
+                Step 2 Active
+            </span>
+            <a href="/?draft_id={{ draft_id }}" class="text-xs text-indigo-600 hover:text-indigo-700 font-medium hover:underline">
+                &larr; Edit Step 1 Intake
+            </a>
+        </div>
+    </div>
+
+    {# Top Summary & Score Banner #}
+    <div
+        class="bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-6">
+        <div class="space-y-3 text-center sm:text-left flex-1">
+            <div class="flex items-center justify-center sm:justify-start gap-2">
+                <span
+                    class="inline-flex items-center text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
+                    Canadian ATS Alignment Assessment
+                </span>
+                {% if match_analysis.match_score >= 80 %}
+                <span
+                    class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 font-medium">Strong
+                    Match</span>
+                {% elif match_analysis.match_score >= 60 %}
+                <span
+                    class="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-200 border border-indigo-400/30 font-medium">Good
+                    Match</span>
+                {% else %}
+                <span
+                    class="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-400/30 font-medium">Moderate
+                    Fit</span>
+                {% endif %}
+            </div>
+            <h2 class="text-xl sm:text-2xl font-bold tracking-tight text-white">Recruiter Verdict</h2>
+            <p class="text-slate-300 text-sm leading-relaxed max-w-2xl">
+                {{ match_analysis.summary }}
+            </p>
+        </div>
+        <div
+            class="flex flex-col items-center justify-center p-5 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 shrink-0 w-36 h-36">
+            <span
+                class="text-4xl font-extrabold {% if match_analysis.match_score >= 80 %}text-emerald-400{% elif match_analysis.match_score >= 60 %}text-indigo-300{% else %}text-amber-400{% endif %}">
+                {{ match_analysis.match_score }}%
+            </span>
+            <span class="text-xs uppercase tracking-wider text-slate-300 mt-1 font-semibold">Match Score</span>
+        </div>
+    </div>
+
+    {# Interactive Confirmation Form for Step 2 #}
+    <form id="match-confirm-form" method="post" action="/generate-from-match/{{ draft_id }}"
+        hx-post="/generate-from-match/{{ draft_id }}"
+        hx-indicator="#loading-overlay" hx-disabled-elt="find button" class="space-y-6 pb-24">
+        {# MATCH BREAKDOWN SECTION #}
+        {% if match_analysis.breakdown %}
+        <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-5">
+            <div class="border-b border-slate-100 pb-3">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                            <span>📊 Match Breakdown</span>
+                            <span
+                                class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">Completeness
+                                by Pillar</span>
+                        </h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Detailed evaluation of how your background aligns
+                            across key recruiting criteria.</p>
+                    </div>
+                </div>
+
+                {% if match_analysis.breakdown.overall_reasoning %}
+                <div class="mt-3.5 p-4 bg-slate-50 border border-slate-200/80 rounded-xl">
+                    <h4
+                        class="text-xs font-bold uppercase tracking-wider text-slate-700 mb-1 flex items-center gap-1.5">
+                        <span>💡 Why you received this score</span>
+                    </h4>
+                    <p class="text-xs text-slate-600 leading-relaxed">
+                        {{ match_analysis.breakdown.overall_reasoning }}
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+
+            {# 6 Pillars Grid #}
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for cat in match_analysis.breakdown.categories %}
+                {% set item = cat.match %}
+                <div
+                    class="p-4 rounded-xl border {% if item.score >= 8 %}bg-emerald-50/40 border-emerald-200/80{% elif item.score >= 5 %}bg-indigo-50/40 border-indigo-200/80{% else %}bg-amber-50/40 border-amber-200/80{% endif %} flex flex-col justify-between space-y-3">
+                    <div>
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="font-bold text-sm text-slate-900 flex items-center gap-1.5">
+                                <span>{{ cat.icon }}</span>
+                                <span>{{ cat.name }}</span>
+                            </span>
+                            <span
+                                class="text-xs font-extrabold px-2.5 py-0.5 rounded-full {% if item.score >= 8 %}bg-emerald-100 text-emerald-800 border border-emerald-300{% elif item.score >= 5 %}bg-indigo-100 text-indigo-800 border border-indigo-300{% else %}bg-amber-100 text-amber-800 border border-amber-300{% endif %}">
+                                {{ item.score }}/10
+                            </span>
+                        </div>
+
+                        {# Completeness progress bar #}
+                        <div class="w-full bg-slate-200/80 rounded-full h-1.5 mt-2.5 overflow-hidden">
+                            <div
+                                class="h-1.5 rounded-full {% if item.score >= 8 %}bg-emerald-500{% elif item.score >= 5 %}bg-indigo-600{% else %}bg-amber-500{% endif %} {% if item.score >= 10 %}w-full{% elif item.score >= 9 %}w-[90%]{% elif item.score >= 8 %}w-[80%]{% elif item.score >= 7 %}w-[70%]{% elif item.score >= 6 %}w-[60%]{% elif item.score >= 5 %}w-[50%]{% elif item.score >= 4 %}w-[40%]{% elif item.score >= 3 %}w-[30%]{% elif item.score >= 2 %}w-[20%]{% elif item.score >= 1 %}w-[10%]{% else %}w-1{% endif %}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="text-xs text-slate-600 leading-relaxed pt-1 border-t border-slate-200/50">
+                        {{ item.explanation }}
+                    </p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {# Inferred Role Details (Auto-detected & editable) #}
+        <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-4">
+            <div class="flex items-start justify-between flex-wrap gap-2">
+                <div>
+                    <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                        <span>🎯 AI-Detected Role Details</span>
+                        <span
+                            class="text-xs font-normal text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">Auto-Inferred</span>
+                    </h3>
+                    <p class="text-xs text-slate-500 mt-1">
+                        Inferred from your job posting. Verify or adjust these values before generating the application
+                        kit.
+                    </p>
+                </div>
+            </div>
+
+            <div class="grid sm:grid-cols-3 gap-4 pt-1">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Target Position / Role
+                    </label>
+                    <input type="text" name="position" value="{{ match_analysis.position or '' }}"
+                        placeholder="e.g. Senior Backend Engineer"
+                        class="w-full rounded-lg border-slate-300 border p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition">
+                    <p class="text-[11px] text-slate-400 mt-1">Used for file naming, package naming & tailoring.</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Target Company Name
+                    </label>
+                    <input type="text" name="company" value="{{ match_analysis.company }}"
+                        placeholder="Company name (e.g. Shopify, RBC)"
+                        class="w-full rounded-lg border-slate-300 border p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition">
+                    <p class="text-[11px] text-slate-400 mt-1">Used for company research, cover letter & package name.</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Target Seniority Level
+                    </label>
+                    <select name="seniority"
+                        class="w-full rounded-lg border-slate-300 border p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition">
+                        {% set standard_levels = ["Intern", "Entry-level / Junior", "Mid-level", "Senior", "Staff /
+                        Principal", "Lead / Tech Lead", "Manager", "Director+"] %}
+                        {% set found_level = false %}
+                        {% for lvl in standard_levels %}
+                        {% set is_selected = (match_analysis.seniority and match_analysis.seniority|lower in lvl|lower)
+                        or (match_analysis.seniority == lvl) %}
+                        {% if is_selected %}{% set found_level = true %}{% endif %}
+                        <option value="{{ lvl }}" {% if is_selected %}selected{% endif %}>{{ lvl }}</option>
+                        {% endfor %}
+                        {% if not found_level and match_analysis.seniority %}
+                        <option value="{{ match_analysis.seniority }}" selected>{{ match_analysis.seniority }}
+                            (Detected)</option>
+                        {% endif %}
+                    </select>
+                    <p class="text-[11px] text-slate-400 mt-1">Calibrates leadership scope and Canadian tone.</p>
+                </div>
+            </div>
+        </div>
+
+        {# Tailoring Strategy Directives #}
+        {% if match_analysis.tailoring_strategy %}
+        <div class="bg-indigo-50/70 border border-indigo-200 rounded-xl p-5">
+            <h3 class="card-title text-indigo-950 flex items-center gap-2 mb-2">
+                <span>💡 Strategic Tailoring Blueprint</span>
+                <span class="text-xs text-indigo-600 font-normal">(How your background will be framed in Stage 2)</span>
+            </h3>
+            <ul class="space-y-2 text-sm text-slate-700">
+                {% for dir in match_analysis.tailoring_strategy %}
+                <li class="flex items-start gap-2">
+                    <span class="text-indigo-600 font-bold mt-0.5">✓</span>
+                    <span>{{ dir }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {# Two-Column Breakdown: Strengths vs Gaps #}
+        <div class="grid md:grid-cols-2 gap-6">
+            {# Verified Strengths #}
+            <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h3 class="card-title text-emerald-800 flex items-center gap-2">
+                        <span>✅ Verified Strengths</span>
+                    </h3>
+                    <span
+                        class="text-xs font-semibold px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">
+                        {{ match_analysis.strengths | length }} matches
+                    </span>
+                </div>
+                <div class="space-y-3">
+                    {% for s in match_analysis.strengths %}
+                    <div class="p-3.5 rounded-lg bg-slate-50 border border-slate-100 space-y-1">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="font-semibold text-sm text-slate-900">{{ s.skill }}</span>
+                            <span
+                                class="text-[11px] px-2 py-0.5 rounded-full font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                {{ s.category or s.match or 'Match' }}
+                            </span>
+                        </div>
+                        <p class="text-xs text-slate-600 leading-relaxed">
+                            <strong class="text-slate-700">Evidence:</strong> {{ s.evidence_found or s.evidence }}
+                        </p>
+                    </div>
+                    {% else %}
+                    <p class="text-xs text-slate-500 italic">No specific strengths mapped.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {# Identified Gaps & Missing Keywords #}
+            <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h3 class="card-title text-amber-800 flex items-center gap-2">
+                        <span>⚠️ Identified Gaps & Keywords</span>
+                    </h3>
+                    <span
+                        class="text-xs font-semibold px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full">
+                        {{ match_analysis.gaps | length }} to address
+                    </span>
+                </div>
+                <div class="space-y-3">
+                    {% for g in match_analysis.gaps %}
+                    <div class="p-3.5 rounded-lg bg-amber-50/50 border border-amber-100 space-y-1">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="font-semibold text-sm text-amber-950">{{ g.requirement or g.gap }}</span>
+                            <span
+                                class="text-[11px] px-2 py-0.5 rounded-full font-medium {% if g.severity|lower in ['critical', 'high'] %}bg-rose-100 text-rose-800{% elif g.severity|lower in ['moderate', 'medium'] %}bg-amber-100 text-amber-800{% else %}bg-slate-200 text-slate-700{% endif %}">
+                                {{ g.severity }}
+                            </span>
+                        </div>
+                        <p class="text-xs text-slate-600 leading-relaxed">
+                            <strong class="text-slate-700">Mitigation:</strong> {{ g.mitigation_tip or g.recommendation
+                            }}
+                        </p>
+                    </div>
+                    {% else %}
+                    <p class="text-xs text-slate-500 italic">No major gaps identified.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        {# Optional Clarifying Questions Section #}
+        {% if questions %}
+        <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-4">
+            <div>
+                <h3 class="card-title text-slate-900 flex items-center gap-2">
+                    <span>💬 Close the Gaps: Quick Clarifying Questions</span>
+                    <span class="text-xs font-normal text-slate-500">(Optional)</span>
+                </h3>
+                <p class="text-xs text-slate-500 mt-1">
+                    Answering any of these allows the model to weave real metrics and KPIs into your résumé for the
+                    identified gaps. Any blank questions will be skipped.
+                </p>
+            </div>
+            <div class="space-y-4">
+                {% for question in questions %}
+                <div class="space-y-1.5">
+                    <input type="hidden" name="question" value="{{ question }}">
+                    <label class="block text-xs font-medium text-slate-700">{{ loop.index }}. {{ question }}</label>
+                    <textarea name="answer" rows="2" placeholder="Your answer or key metrics (optional)…"
+                        class="w-full rounded-lg border-slate-300 border p-2.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {# Floating Bottom Action Dock for Step 2 #}
+        <div class="fixed bottom-0 inset-x-0 z-30 floating-dock border-t border-slate-200/80 py-3.5 px-4 shadow-lg">
+            <div class="max-w-4xl mx-auto flex items-center justify-between gap-4">
+                <a href="/?draft_id={{ draft_id }}"
+                   class="text-xs font-semibold text-slate-600 hover:text-slate-900 px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition flex items-center gap-1.5">
+                    &larr; <span>Back to Step 1: Intake & History</span>
+                </a>
+
+                <div class="flex items-center gap-3">
+                    <button type="submit" id="submit-step2-btn"
+                            class="bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-semibold px-7 py-2.5 rounded-xl text-sm shadow-sm transition flex items-center gap-2 disabled:opacity-50">
+                        <span>Proceed to Step 3: Application Kit & Deliverables</span>
+                        <span aria-hidden="true">&rarr;</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+    (function() {
+        const form = document.getElementById('match-confirm-form');
+        if (form) {
+            form.addEventListener('submit', () => {
+                const titleEl = document.getElementById('loading-title');
+                const descEl = document.getElementById('loading-desc');
+                if (titleEl) titleEl.textContent = 'Crafting Complete Application Kit…';
+                if (descEl) descEl.textContent = 'Writing Canadian-format résumé, customized cover letter, STAR interview prep, and company research.';
+            });
+        }
+    })();
+</script>

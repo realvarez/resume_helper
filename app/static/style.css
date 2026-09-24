@@ -1,0 +1,99 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+}
+
+body {
+    font-family: var(--font-sans);
+}
+
+/* Pure-CSS radio tabs: the checked radio shows its matching panel and highlights its label. */
+#tab-match:checked~nav label[for="tab-match"],
+#tab-resume:checked~nav label[for="tab-resume"],
+#tab-company:checked~nav label[for="tab-company"],
+#tab-letter:checked~nav label[for="tab-letter"],
+#tab-interview:checked~nav label[for="tab-interview"],
+#tab-tips:checked~nav label[for="tab-tips"] {
+    color: #4f46e5; /* indigo-600 */
+    border-bottom: 2px solid #4f46e5;
+    margin-bottom: -1px;
+}
+
+#tab-match:checked~#panel-match,
+#tab-resume:checked~#panel-resume,
+#tab-company:checked~#panel-company,
+#tab-letter:checked~#panel-letter,
+#tab-interview:checked~#panel-interview,
+#tab-tips:checked~#panel-tips {
+    display: block;
+}
+
+/* HTMX loading overlay: `hidden` is overridden while a request runs */
+.htmx-indicator.htmx-request {
+    display: flex !important;
+}
+
+/* Résumé preview headings */
+.preview-heading {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid #cbd5e1;
+    padding-bottom: 0.25rem;
+    margin: 1.25rem 0 0.5rem 0;
+}
+
+.card-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+/* Hide default disclosure marker on question accordions */
+summary::-webkit-details-marker {
+    display: none;
+}
+
+/* Drag and Drop Zone styling */
+.dropzone {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 2px dashed #cbd5e1;
+    background-color: #f8fafc;
+}
+
+.dropzone.drag-active {
+    border-color: #6366f1 !important;
+    background-color: #eef2ff !important;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+    transform: scale(1.005);
+}
+
+/* Segmented switch tab styling */
+.segmented-btn {
+    transition: all 0.15s ease-in-out;
+}
+.segmented-btn.active {
+    background-color: #ffffff;
+    color: #0f172a;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+/* Micro animations */
+@keyframes pulse-subtle {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.animate-pulse-subtle {
+    animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Floating bottom action dock */
+.floating-dock {
+    backdrop-filter: blur(12px);
+    background-color: rgba(255, 255, 255, 0.92);
+}
