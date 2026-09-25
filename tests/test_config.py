@@ -5,15 +5,14 @@ def test_target_country_is_canada():
     assert TARGET_COUNTRY == "Canada"
 
 
-def test_default_settings_without_env_file():
-    # Pass _env_file=None to inspect code-defined defaults rather than local .env
-    settings = Settings(_env_file=None)
-    assert settings.llm_model == "gemini/gemini-3.8-flash"
-    assert settings.llm_temperature == 0.4
-    assert settings.max_upload_bytes == 5 * 1024 * 1024
-    assert settings.results_cache_size == 20
-    assert settings.request_timeout == 300
-    assert settings.tavily_max_results == 4
+def test_default_settings_fields():
+    fields = Settings.model_fields
+    assert fields["llm_model"].default == "gemini/gemini-3.8-flash"
+    assert fields["llm_temperature"].default == 0.4
+    assert fields["max_upload_bytes"].default == 5 * 1024 * 1024
+    assert fields["results_cache_size"].default == 20
+    assert fields["request_timeout"].default == 300
+    assert fields["tavily_max_results"].default == 4
 
 
 def test_settings_override():
