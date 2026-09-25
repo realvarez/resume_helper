@@ -45,7 +45,10 @@ def _extract_json(content: str) -> dict:
 
 def _validation_feedback(error: Exception) -> str:
     if isinstance(error, ValidationError):
-        problems = "\n".join(f"- {'.'.join(str(p['loc']))}: {p['msg']}" for p in error.errors()[:12])
+        problems = "\n".join(
+            f"- {'.'.join(str(loc) for loc in p['loc'])}: {p['msg']}"
+            for p in error.errors()[:12]
+        )
         return (
             f"Your JSON was parseable but did not match the required schema:\n{problems}\n\n"
             "Return the corrected COMPLETE JSON object using EXACTLY the field names from the "
