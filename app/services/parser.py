@@ -1,5 +1,6 @@
 """Extract plain text from uploaded résumé files (PDF / DOCX / TXT)."""
 import io
+from pathlib import Path
 import pdfplumber
 from docx import Document as DocxDocument
 from fastapi import HTTPException, UploadFile
@@ -21,7 +22,7 @@ def extract_text(upload: UploadFile, min_chars: int = 0) -> str:
     if not upload or not getattr(upload, "filename", ""):
         return ""
     settings = get_settings()
-    suffix = "." + upload.filename.rsplit(".", 1)[-1].lower() if "." in upload.filename else ""
+    suffix = Path(upload.filename).suffix.lower()
 
     if suffix not in ALLOWED_EXTENSIONS:
         raise HTTPException(

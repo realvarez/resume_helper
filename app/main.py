@@ -20,6 +20,7 @@ from app.services.generator import (
     refine_tailored_resume,
     run_pipeline,
 )
+from app.services.export import generate_application_zip, get_application_filenames
 from app.services.parser import build_extra_context, extract_text
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -35,19 +36,27 @@ _results: OrderedDict[str, dict] = OrderedDict()
 _drafts: OrderedDict[str, dict] = OrderedDict()
 
 
+def _cache_store(store: OrderedDict, item: dict) -> str:
+    item_id = uuid.uuid4().hex[:12]
+    store[item_id] = item
+    while len(store) > get_settings().results_cache_size:
+        store.popitem(last=False)
+    return item_id
+
+
+def _cache_get(store: OrderedDict, item_id: str, error_msg: str) -> dict:
+    try:
+        return store[item_id]
+    except KeyError:
+        raise HTTPException(status_code=404, detail=error_msg) from None
+
+
 def _store_result(inputs: GenerateInputs, kit: ApplicationKit, draft_id: str | None = None) -> str:
-    result_id = uuid.uuid4().hex[:12]
-    _results[result_id] = {"inputs": inputs, "kit": kit, "draft_id": draft_id}
-    while len(_results) > get_settings().results_cache_size:
-        _results.popitem(last=False)
-    return result_id
+    return _cache_store(_results, {"inputs": inputs, "kit": kit, "draft_id": draft_id})
 
 
 def _get_result(result_id: str) -> dict:
-    try:
-        return _results[result_id]
-    except KeyError:
-        raise HTTPException(status_code=404, detail="Result expired or not found. Generate it again.") from None
+    return _cache_get(_results, result_id, "Result expired or not found. Generate it again.")
 
 
 def _store_draft(
@@ -55,25 +64,15 @@ def _store_draft(
     match_analysis: ProfileMatchAnalysis | None,
     questions: list[str] | None = None,
 ) -> str:
-    draft_id = uuid.uuid4().hex[:12]
-    _drafts[draft_id] = {
+    return _cache_store(_drafts, {
         "inputs": inputs,
         "match_analysis": match_analysis,
         "questions": questions or [],
-    }
-    while len(_drafts) > get_settings().results_cache_size:
-        _drafts.popitem(last=False)
-    return draft_id
+    })
 
 
 def _get_draft(draft_id: str) -> dict:
-    try:
-        return _drafts[draft_id]
-    except KeyError:
-        raise HTTPException(
-            status_code=404,
-            detail="Draft expired or not found. Please start over from the home page.",
-        ) from None
+    return _cache_get(_drafts, draft_id, "Draft expired or not found. Please start over from the home page.")
 
 
 @app.post("/api/parse-preview")
@@ -283,23 +282,17 @@ async def generate_from_match(request: Request, draft_id: str):
     seniority = str(form.get("seniority") or "").strip()
     position = str(form.get("position") or "").strip()
 
-    inputs: GenerateInputs = draft["inputs"]
-    match_analysis: ProfileMatchAnalysis | None = draft.get("match_analysis")
-
-    effective_company = company or (match_analysis.company if match_analysis else "")
-    effective_seniority = seniority or (match_analysis.seniority if match_analysis else "Mid-level")
-    effective_position = position or (match_analysis.position if match_analysis else "")
-
-    inputs = inputs.model_copy(update={
-        "company": effective_company,
-        "seniority": effective_seniority,
-        "position": effective_position,
+    inputs: GenerateInputs = draft["inputs"].model_copy(update={
+        "company": company,
+        "seniority": seniority,
+        "position": position,
     })
-    if match_analysis:
+    match_analysis: ProfileMatchAnalysis | None = draft.get("match_analysis")
+    if match_analysis and (company or seniority or position):
         match_analysis = match_analysis.model_copy(update={
-            "company": effective_company,
-            "seniority": effective_seniority,
-            "position": effective_position,
+            "company": company or match_analysis.company,
+            "seniority": seniority or match_analysis.seniority,
+            "position": position or match_analysis.position,
         })
 
     candidate_answers = [
@@ -320,102 +313,9 @@ async def generate_from_match(request: Request, draft_id: str):
     return RedirectResponse(f"/result/{result_id}", status_code=303)
 
 
-@app.post("/generate")
-async def generate(request: Request):
-    """Two-stage endpoint.
-
-    Stage 1 (no ``questions_stage`` field): validates the form and, when the
-    optional questions step is enabled, returns clarifying questions about the
-    candidate's experience. Stage 2 posts those questions back with answers.
-    Both stages end in a full kit generation when the questions step is
-    disabled or skipped.
-    """
-    # Parse manually (not typed File/Form params) so both multipart (file upload)
-    # and urlencoded submissions work with any client.
-    form = await request.form()
-    resume_text = str(form.get("resume_text") or "")
-    job_description = str(form.get("job_description") or "").strip()
-    company = str(form.get("company") or "").strip()
-    seniority = str(form.get("seniority") or "").strip() or "Senior"
-    position = str(form.get("position") or "").strip()
-
-    # Supporting context: passed from questions_stage or extracted from uploads & notes
-    extra_context = str(form.get("extra_context") or "")
-    if not extra_context:
-        extra_notes = str(form.get("extra_notes") or "").strip()
-        supporting_files = [
-            f for f in form.getlist("supporting_files")
-            if f is not None and getattr(f, "filename", "")
-        ]
-        extra_context = build_extra_context(supporting_files, extra_notes)
-
-    # Résumé source: uploaded file wins over pasted text.
-    text = ""
-    upload = form.get("resume_file")
-    if upload is not None and getattr(upload, "filename", ""):
-        text = extract_text(upload)
-    elif resume_text.strip():
-        text = resume_text.strip()
-    if len(text) < 80:
-        raise HTTPException(status_code=422, detail="Provide your résumé (upload a file or paste at least a few lines).")
-
-    # Optional intake: ask about missing KPIs/responsibilities before generating.
-    if form.get("ask_questions") and not form.get("questions_stage"):
-        draft = GenerateInputs(
-            resume_text=text,
-            extra_context=extra_context,
-            job_description=job_description,
-            company=company,
-            seniority=seniority,
-            position=position,
-        )
-        questions = await generate_clarifying_questions(draft)
-        if questions:
-            context = {
-                "questions": questions,
-                "resume_text": text,
-                "extra_context": extra_context,
-                "job_description": job_description,
-                "company": company,
-                "seniority": seniority,
-                "position": position,
-            }
-            template = "_questions.html" if request.headers.get("HX-Request") else "questions.html"
-            return templates.TemplateResponse(request, template, context)
-
-    # Stage 2 (or direct generation): collect answered question pairs; blanks are skipped.
-    candidate_answers = [
-        (str(q).strip(), str(a).strip())
-        for q, a in zip(form.getlist("question"), form.getlist("answer"))
-        if str(q).strip() and str(a).strip()
-    ] or None
-
-    inputs = GenerateInputs(
-        resume_text=text,
-        extra_context=extra_context,
-        job_description=job_description,
-        company=company,
-        seniority=seniority,
-        position=position,
-    )
-
-    kit, research_context = await run_pipeline(inputs, candidate_answers)
-    result_id = _store_result(inputs, kit)
-    logger.info(
-        "Generated kit %s for %s (%s, %s mode)",
-        result_id, inputs.company or "no company", TARGET_COUNTRY,
-        "targeted" if job_description else "general",
-    )
-
-    if request.headers.get("HX-Request"):
-        return Response(status_code=200, headers={"HX-Redirect": f"/result/{result_id}"})
-    return RedirectResponse(f"/result/{result_id}", status_code=303)
-
-
 @app.get("/result/{result_id}")
 async def result(request: Request, result_id: str):
     stored = _get_result(result_id)
-    from app.services.export import get_application_filenames
     filenames = get_application_filenames(stored["kit"], stored.get("inputs"))
     return templates.TemplateResponse(
         request,
@@ -449,7 +349,6 @@ async def refine(request: Request, result_id: str):
     stored["last_feedback"] = feedback
     logger.info("Refined résumé for kit %s: %.80r", result_id, feedback)
 
-    from app.services.export import get_application_filenames
     filenames = get_application_filenames(stored["kit"], stored.get("inputs"))
 
     context = {"result_id": result_id, "target_country": TARGET_COUNTRY, "filenames": filenames, **stored}
@@ -462,9 +361,7 @@ async def refine(request: Request, result_id: str):
 async def download(result_id: str):
     """Download single tailored ATS résumé PDF."""
     stored = _get_result(result_id)
-
-    from app.services.export import get_application_filenames
-    from app.services.pdf import render_resume_pdf  # deferred: heavy import
+    from app.services.pdf import render_resume_pdf  # deferred: heavy WeasyPrint import
 
     pdf_bytes = render_resume_pdf(stored["kit"])
     filenames = get_application_filenames(stored["kit"], stored.get("inputs"))
@@ -479,8 +376,6 @@ async def download(result_id: str):
 async def download_cover_letter(result_id: str):
     """Download single tailored cover letter PDF."""
     stored = _get_result(result_id)
-
-    from app.services.export import get_application_filenames
     from app.services.pdf import render_cover_letter_pdf
 
     filenames = get_application_filenames(stored["kit"], stored.get("inputs"))
@@ -497,21 +392,10 @@ async def download_cover_letter(result_id: str):
 
 
 @app.get("/download-bundle/{result_id}")
-@app.get("/download-zip/{result_id}")
 @app.get("/download/{result_id}/zip")
 async def download_bundle(result_id: str):
-    """Download full application package as a ZIP bundle.
-
-    Named: RA_<position>_<company>.zip
-    Contains all deliverables with standard suffixes:
-      _resume.pdf, _resume.md, _cover_letter.pdf, _cover_letter.md,
-      _cover_letter.txt, _interview_prep.md, _tips.md,
-      _company_research.md, _match_analysis.md
-    """
+    """Download full application package as a ZIP bundle."""
     stored = _get_result(result_id)
-
-    from app.services.export import generate_application_zip
-
     zip_bytes, zip_filename = generate_application_zip(stored["kit"], stored.get("inputs"))
     return Response(
         content=zip_bytes,
