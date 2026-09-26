@@ -35,11 +35,7 @@ litellm.suppress_debug_info = True
 
 def _extract_json(content: str) -> dict:
     """Parse model output as JSON, tolerating stray markdown fences."""
-    text = content.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-        if text.rstrip().endswith("```"):
-            text = text.rstrip()[:-3]
+    text = re.sub(r"^```(?:json)?\s*|\s*```$", "", content.strip())
     return json.loads(text)
 
 
@@ -265,18 +261,14 @@ async def generate_kit_from_match(
     """Stages 2 & 3: Generate Tailored Resume + Companion Kit using confirmed match context."""
     from app.services.research import build_research_context
 
-    inferred_company = match_analysis.company if match_analysis and match_analysis.company else ""
-    inferred_seniority = match_analysis.seniority if match_analysis and match_analysis.seniority else "Mid-level"
-    inferred_position = match_analysis.position if match_analysis and match_analysis.position else ""
-
-    effective_company = inputs.company.strip() if inputs.company.strip() else inferred_company
-    effective_seniority = inputs.seniority.strip() if inputs.seniority.strip() else inferred_seniority
-    effective_position = inputs.position.strip() if inputs.position.strip() else inferred_position
+    inferred_company = match_analysis.company if match_analysis else ""
+    inferred_seniority = match_analysis.seniority if match_analysis else "Mid-level"
+    inferred_position = match_analysis.position if match_analysis else ""
 
     effective_inputs = inputs.model_copy(update={
-        "company": effective_company,
-        "seniority": effective_seniority,
-        "position": effective_position,
+        "company": inputs.company.strip() or inferred_company,
+        "seniority": inputs.seniority.strip() or inferred_seniority,
+        "position": inputs.position.strip() or inferred_position,
     })
 
     # Web research (Tavily search)

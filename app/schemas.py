@@ -282,13 +282,9 @@ class CompanionKit(BaseModel):
 # Complete Application Kit Deliverable
 # ---------------------------------------------------------------------------
 
-class ApplicationKit(BaseModel):
+class ApplicationKit(CompanionKit):
     match_analysis: ProfileMatchAnalysis | None = None
     tailored_resume: TailoredResume
-    company_research: CompanyResearch
-    cover_letter: CoverLetter
-    interview_prep: InterviewQuestions
-    tips: TipsSection
 
 
 # ---------------------------------------------------------------------------
