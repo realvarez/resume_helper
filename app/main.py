@@ -399,3 +399,33 @@ async def download_bundle(result_id: str):
         headers={"Content-Disposition": f'attachment; filename="{zip_filename}"'},
     )
 
+
+@app.get("/history")
+async def history(request: Request):
+    storage = get_storage()
+    applications = storage.list_applications(limit=100)
+    total_apps = len(applications)
+    scores = [a["match_score"] for a in applications if a.get("match_score") is not None]
+    avg_score = round(sum(scores) / len(scores)) if scores else None
+
+    return templates.TemplateResponse(
+        request,
+        "history.html",
+        {
+            "applications": applications,
+            "total_apps": total_apps,
+            "avg_score": avg_score,
+            "target_country": TARGET_COUNTRY,
+        },
+    )
+
+
+@app.delete("/api/applications/{result_id}")
+async def delete_application_endpoint(result_id: str):
+    storage = get_storage()
+    deleted = storage.delete_application(result_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Application not found")
+    return Response(status_code=200)
+
+

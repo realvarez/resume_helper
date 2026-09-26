@@ -86,3 +86,30 @@ def test_download_endpoints_404_on_missing_id(client):
 
     response_zip = client.get("/download/invalid_id/zip")
     assert response_zip.status_code == 404
+
+
+def test_history_page_empty(client):
+    response = client.get("/history")
+    assert response.status_code == 200
+    assert "Past Applications" in response.text
+    assert "No past applications recorded yet" in response.text
+
+
+def test_history_page_with_data_and_delete(client, sample_generate_inputs, sample_application_kit):
+    from app.services.storage import get_storage
+    storage = get_storage()
+    storage.save_application("test_app_1", sample_generate_inputs, sample_application_kit)
+
+    # GET /history
+    response = client.get("/history")
+    assert response.status_code == 200
+    assert "test_app_1" in response.text
+    assert sample_generate_inputs.company in response.text
+
+    # DELETE /api/applications/{id}
+    del_resp = client.delete("/api/applications/test_app_1")
+    assert del_resp.status_code == 200
+
+    # Ensure deleted
+    assert storage.get_application("test_app_1") is None
+
