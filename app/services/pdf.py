@@ -18,6 +18,9 @@ def render_resume_pdf(kit: ApplicationKit) -> bytes:
     """HTML -> PDF. Raises 503 with setup guidance if system libs are missing."""
     try:
         from weasyprint import HTML
+        html = templates.get_template("resume_pdf.html").render(resume=kit.tailored_resume)
+        pdf_bytes: bytes = HTML(string=html, base_url=".").write_pdf()
+        return pdf_bytes
     except OSError as exc:  # missing pango/cairo system libraries
         logger.error("WeasyPrint unavailable: %s", exc)
         raise HTTPException(
@@ -27,33 +30,28 @@ def render_resume_pdf(kit: ApplicationKit) -> bytes:
                    "libgdk-pixbuf-2.0-0 libcairo2",
         ) from exc
 
-    html = templates.get_template("resume_pdf.html").render(resume=kit.tailored_resume)
-    pdf_bytes: bytes = HTML(string=html, base_url=".").write_pdf()
-    return pdf_bytes
-
 
 def render_cover_letter_pdf(kit: ApplicationKit, company: str = "", position: str = "") -> bytes:
     """Render the tailored cover letter to an executive PDF via WeasyPrint."""
+    import datetime
+    today = datetime.date.today().strftime("%B %d, %Y")
+
     try:
         from weasyprint import HTML
+        html = templates.get_template("cover_letter_pdf.html").render(
+            cover_letter=kit.cover_letter,
+            resume=kit.tailored_resume,
+            company=company,
+            position=position,
+            target_country=TARGET_COUNTRY,
+            date_str=today,
+        )
+        pdf_bytes: bytes = HTML(string=html, base_url=".").write_pdf()
+        return pdf_bytes
     except OSError as exc:
         logger.error("WeasyPrint unavailable: %s", exc)
         raise HTTPException(
             status_code=503,
             detail="PDF generation is not available: WeasyPrint system libraries are missing.",
         ) from exc
-
-    import datetime
-    today = datetime.date.today().strftime("%B %d, %Y")
-
-    html = templates.get_template("cover_letter_pdf.html").render(
-        cover_letter=kit.cover_letter,
-        resume=kit.tailored_resume,
-        company=company,
-        position=position,
-        target_country=TARGET_COUNTRY,
-        date_str=today,
-    )
-    pdf_bytes: bytes = HTML(string=html, base_url=".").write_pdf()
-    return pdf_bytes
 

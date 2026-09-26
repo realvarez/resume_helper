@@ -2,3 +2,6 @@
 __pycache__/
 .venv/
 .vscode
+.gemini
+.pytest_cache/
+.superpowers/
