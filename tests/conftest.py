@@ -259,3 +259,15 @@ def sample_generate_inputs() -> GenerateInputs:
         seniority="Senior",
         position="Senior Backend Engineer",
     )
+
+
+@pytest.fixture(autouse=True)
+def isolate_storage(tmp_path, monkeypatch):
+    """Ensure every test uses an isolated SQLite database."""
+    import app.services.storage as storage_mod
+    test_db = tmp_path / "test_isolated.db"
+    test_repo = storage_mod.StorageRepository(test_db)
+    monkeypatch.setattr(storage_mod, "_global_storage", test_repo)
+    monkeypatch.setattr(storage_mod, "DEFAULT_DB_PATH", test_db)
+    yield test_repo
+
