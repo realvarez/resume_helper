@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}Past Applications — Resume Worker{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    {# Top Title & Header #}
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
+        <div>
+            <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+                <span class="w-8 h-8 rounded-lg bg-indigo-600 text-white grid place-items-center text-sm font-bold shadow-xs">
+                    📁
+                </span>
+                Past Applications
+            </h1>
+            <p class="text-sm text-slate-500 mt-1">
+                Review, download, or reuse your previously tailored Canadian application kits.
+            </p>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="/" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm hover:shadow transition">
+                <span>+ New Application</span>
+            </a>
+        </div>
+    </div>
+
+    {# Metric Summary Cards #}
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-white rounded-xl border border-slate-200/80 p-4 shadow-xs">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 block">Total Applications</span>
+            <span class="text-2xl font-black text-slate-900 mt-1 block">{{ total_apps }}</span>
+        </div>
+        <div class="bg-white rounded-xl border border-slate-200/80 p-4 shadow-xs">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 block">Average Match Score</span>
+            <span class="text-2xl font-black text-slate-900 mt-1 block">
+                {% if avg_score %}{{ avg_score }}%{% else %}—{% endif %}
+            </span>
+        </div>
+        <div class="bg-white rounded-xl border border-slate-200/80 p-4 shadow-xs">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 block">Target Market</span>
+            <span class="text-2xl font-black text-indigo-600 mt-1 block">{{ target_country }}</span>
+        </div>
+    </div>
+
+    {% if not applications %}
+    {# Empty State #}
+    <div class="bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center max-w-lg mx-auto my-8">
+        <div class="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 grid place-items-center text-2xl mx-auto mb-4">
+            📄
+        </div>
+        <h3 class="text-base font-bold text-slate-900">No past applications recorded yet</h3>
+        <p class="text-xs text-slate-500 mt-1.5 leading-relaxed">
+            Your tailored résumés, cover letters, and company research dossiers will automatically be saved here.
+        </p>
+        <div class="mt-6">
+            <a href="/" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition">
+                Create First Application
+            </a>
+        </div>
+    </div>
+    {% else %}
+
+    {# Search & Filter Input #}
+    <div class="flex items-center justify-between gap-4">
+        <div class="relative flex-1 max-w-md">
+            <input type="text"
+                   id="history-search"
+                   oninput="filterApplications()"
+                   placeholder="Search by company or role…"
+                   class="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white transition shadow-xs">
+            <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+        </div>
+        <span class="text-xs text-slate-400 font-medium">Showing {{ applications|length }} kits</span>
+    </div>
+
+    {# Applications Table #}
+    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-slate-600" id="applications-table">
+                <thead class="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    <tr>
+                        <th class="px-5 py-3.5">Position & Role</th>
+                        <th class="px-5 py-3.5">Company</th>
+                        <th class="px-5 py-3.5">Seniority</th>
+                        <th class="px-5 py-3.5 text-center">Match Fit</th>
+                        <th class="px-5 py-3.5">Created</th>
+                        <th class="px-5 py-3.5 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for app in applications %}
+                    <tr class="hover:bg-slate-50/70 transition application-row" data-company="{{ app.company|lower }}" data-position="{{ app.position|lower }}">
+                        <td class="px-5 py-4 font-semibold text-slate-900">
+                            <a href="/result/{{ app.result_id }}" class="hover:text-indigo-600 transition block">
+                                {{ app.position or "Tailored Professional" }}
+                            </a>
+                            <span class="text-[10px] text-slate-400 font-mono">ID: {{ app.result_id }}</span>
+                        </td>
+                        <td class="px-5 py-4 font-medium text-slate-700">
+                            {{ app.company or "General / Unpaired" }}
+                        </td>
+                        <td class="px-5 py-4 text-slate-500">
+                            {{ app.seniority or "Mid-level" }}
+                        </td>
+                        <td class="px-5 py-4 text-center">
+                            {% if app.match_score is not none %}
+                                {% if app.match_score >= 80 %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    {{ app.match_score }}% Match
+                                </span>
+                                {% elif app.match_score >= 60 %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                    {{ app.match_score }}% Match
+                                </span>
+                                {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                                    {{ app.match_score }}% Match
+                                </span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-slate-400 text-[11px]">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-5 py-4 text-slate-400 whitespace-nowrap">
+                            {{ app.created_at[:10] if app.created_at else "Recently" }}
+                        </td>
+                        <td class="px-5 py-4 text-right whitespace-nowrap">
+                            <div class="inline-flex items-center gap-1.5">
+                                <a href="/result/{{ app.result_id }}"
+                                   class="px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-[11px] transition"
+                                   title="View Application Kit">
+                                    View
+                                </a>
+                                <a href="/download-bundle/{{ app.result_id }}"
+                                   class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] transition"
+                                   title="Download ZIP Package">
+                                    ZIP
+                                </a>
+                                <a href="/?result_id={{ app.result_id }}"
+                                   class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] transition"
+                                   title="Reuse as Template for new application">
+                                    Reuse
+                                </a>
+                                <button hx-delete="/api/applications/{{ app.result_id }}"
+                                        hx-target="closest tr"
+                                        hx-swap="outerHTML"
+                                        hx-confirm="Are you sure you want to delete this application kit?"
+                                        class="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition"
+                                        title="Delete Application">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+    function filterApplications() {
+        const query = document.getElementById('history-search').value.toLowerCase().trim();
+        const rows = document.querySelectorAll('.application-row');
+        rows.forEach(row => {
+            const company = row.getAttribute('data-company') || '';
+            const position = row.getAttribute('data-position') || '';
+            if (company.includes(query) || position.includes(query)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+    </script>
+    {% endif %}
+
+</div>
+{% endblock %}

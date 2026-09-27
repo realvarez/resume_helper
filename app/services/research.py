@@ -7,6 +7,7 @@ import asyncio
 import logging
 
 from app.config import TARGET_COUNTRY, get_settings
+from app.services.storage import get_storage
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,14 @@ async def build_research_context(company: str, job_description: str) -> str:
 
     Returns a short note instead when no API key is configured.
     """
+    company_name = company.strip()
+    if company_name:
+        storage = get_storage()
+        cached = storage.get_cached_research(company_name, max_age_days=14)
+        if cached:
+            logger.info("Using cached company research for %r", company_name)
+            return cached
+
     settings = get_settings()
     if not settings.tavily_api_key:
         return (
@@ -67,7 +76,7 @@ async def build_research_context(company: str, job_description: str) -> str:
     queries = [
         (label, tpl.format(company=company, role_words=role_words))
         for label, tpl in COMPANY_QUERY_TEMPLATES
-        if company.strip()
+        if company_name
     ]
     queries.append(MARKET_NORMS_QUERY)
 
@@ -86,8 +95,11 @@ async def build_research_context(company: str, job_description: str) -> str:
             "WEB RESEARCH: all queries failed. "
             "Rely on your existing knowledge of the company, but be honest about uncertainty."
         )
-    if company.strip():
+    if company_name:
         header = f"WEB RESEARCH RESULTS (source snippets gathered just now for '{company}'):"
     else:
         header = f"WEB RESEARCH RESULTS ({TARGET_COUNTRY} job-market snippets gathered just now):"
-    return header + "\n\n" + "\n\n".join(found)
+    result_text = header + "\n\n" + "\n\n".join(found)
+    if company_name:
+        get_storage().cache_research(company_name, result_text)
+    return result_text

@@ -59,3 +59,24 @@ async def test_build_research_context_all_queries_fail():
 
         context = await build_research_context(company="Shopify", job_description="Developer")
         assert "WEB RESEARCH: all queries failed" in context
+
+
+@pytest.mark.asyncio
+async def test_build_research_context_uses_cache(monkeypatch, tmp_path):
+    from app.services.storage import StorageRepository
+    test_storage = StorageRepository(tmp_path / "research_cache.db")
+    test_storage.cache_research("Acme Corp", "Cached Acme Dossier")
+    monkeypatch.setattr("app.services.research.get_storage", lambda: test_storage)
+
+    called_search = False
+
+    def fake_search(*args, **kwargs):
+        nonlocal called_search
+        called_search = True
+        return []
+
+    monkeypatch.setattr("app.services.research._search_sync", fake_search)
+    result = await build_research_context("Acme Corp", "Some JD")
+    assert result == "Cached Acme Dossier"
+    assert called_search is False
+
