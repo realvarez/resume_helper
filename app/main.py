@@ -2,7 +2,6 @@
 import logging
 import re
 import uuid
-from collections import OrderedDict
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
@@ -33,9 +32,9 @@ templates.env.filters["bold"] = bold
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 
-def _store_result(inputs: GenerateInputs, kit: ApplicationKit, draft_id: str | None = None) -> str:
+def _store_result(inputs: GenerateInputs, kit: ApplicationKit) -> str:
     result_id = uuid.uuid4().hex[:12]
-    get_storage().save_application(result_id, inputs, kit, draft_id=draft_id)
+    get_storage().save_application(result_id, inputs, kit)
     return result_id
 
 
@@ -293,14 +292,16 @@ async def generate_from_match(request: Request, draft_id: str):
         if str(q).strip() and str(a).strip()
     ] or None
 
+    kit, research_context = await generate_kit_from_match(inputs, match_analysis, candidate_answers)
+
     if candidate_answers:
         get_storage().add_candidate_facts(candidate_answers)
 
-    kit, research_context = await generate_kit_from_match(inputs, match_analysis, candidate_answers)
-    result_id = _store_result(inputs, kit, draft_id=draft_id)
+    result_id = _store_result(inputs, kit)
+    get_storage().delete_draft(draft_id)
     logger.info(
-        "Generated kit %s from match %s for %s (%s, %s)",
-        result_id, draft_id, inputs.company or "no company", TARGET_COUNTRY, inputs.seniority,
+        "Generated kit %s for %s (%s, %s)",
+        result_id, inputs.company or "no company", TARGET_COUNTRY, inputs.seniority,
     )
 
     if request.headers.get("HX-Request"):
@@ -317,7 +318,6 @@ async def result(request: Request, result_id: str):
         "result.html",
         {
             "result_id": result_id,
-            "draft_id": stored.get("draft_id"),
             "target_country": TARGET_COUNTRY,
             "active_step": 3,
             "filenames": filenames,

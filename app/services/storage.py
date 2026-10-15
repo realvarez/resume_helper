@@ -62,7 +62,6 @@ class StorageRepository:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS applications (
                     result_id TEXT PRIMARY KEY,
-                    draft_id TEXT,
                     company TEXT NOT NULL,
                     position TEXT NOT NULL,
                     seniority TEXT NOT NULL,
@@ -78,10 +77,12 @@ class StorageRepository:
 
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS company_research_cache (
-                    company_normalized TEXT PRIMARY KEY,
+                    company_normalized TEXT NOT NULL,
+                    role_normalized TEXT NOT NULL,
                     company_display TEXT NOT NULL,
                     research_markdown TEXT NOT NULL,
-                    fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (company_normalized, role_normalized)
                 );
             """)
 
@@ -91,7 +92,7 @@ class StorageRepository:
                     question TEXT NOT NULL,
                     answer TEXT NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(question, answer)
+                    UNIQUE(question)
                 );
             """)
 
@@ -157,7 +158,6 @@ class StorageRepository:
         result_id: str,
         inputs: GenerateInputs,
         kit: ApplicationKit,
-        draft_id: str | None = None,
     ) -> None:
         company = (inputs.company or (kit.match_analysis.company if kit.match_analysis else "") or "General").strip()
         position = (inputs.position or (kit.match_analysis.position if kit.match_analysis else "") or kit.tailored_resume.target_role or "Professional").strip()
@@ -171,10 +171,10 @@ class StorageRepository:
             conn.execute(
                 """
                 INSERT OR REPLACE INTO applications (
-                    result_id, draft_id, company, position, seniority, match_score, inputs_json, kit_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+                    result_id, company, position, seniority, match_score, inputs_json, kit_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?);
                 """,
-                (result_id, draft_id, company, position, seniority, match_score, inputs_json, kit_json),
+                (result_id, company, position, seniority, match_score, inputs_json, kit_json),
             )
 
     def get_application(self, result_id: str) -> dict | None:
@@ -186,7 +186,6 @@ class StorageRepository:
             kit = ApplicationKit.model_validate_json(row["kit_json"])
             return {
                 "result_id": row["result_id"],
-                "draft_id": row["draft_id"],
                 "company": row["company"],
                 "position": row["position"],
                 "seniority": row["seniority"],
@@ -210,7 +209,7 @@ class StorageRepository:
         with self._connect() as conn:
             rows = conn.execute(
                 """
-                SELECT result_id, draft_id, company, position, seniority, match_score, created_at, updated_at
+                SELECT result_id, company, position, seniority, match_score, created_at, updated_at
                 FROM applications
                 ORDER BY created_at DESC
                 LIMIT ?;
@@ -228,8 +227,9 @@ class StorageRepository:
     # Company Research Cache
     # -----------------------------------------------------------------------
 
-    def get_cached_research(self, company: str, max_age_days: int = 14) -> str | None:
+    def get_cached_research(self, company: str, role: str, max_age_days: int = 14) -> str | None:
         normalized = company.strip().lower()
+        normalized_role = role.strip().lower()
         if not normalized:
             return None
         with self._connect() as conn:
@@ -238,13 +238,14 @@ class StorageRepository:
                 SELECT research_markdown, fetched_at
                 FROM company_research_cache
                 WHERE company_normalized = ?
+                  AND role_normalized = ?
                   AND fetched_at >= datetime('now', ? || ' days');
                 """,
-                (normalized, f"-{max_age_days}"),
+                (normalized, normalized_role, f"-{max_age_days}"),
             ).fetchone()
             return row["research_markdown"] if row else None
 
-    def cache_research(self, company: str, research_markdown: str) -> None:
+    def cache_research(self, company: str, role: str, research_markdown: str) -> None:
         normalized = company.strip().lower()
         if not normalized or not research_markdown.strip():
             return
@@ -252,10 +253,10 @@ class StorageRepository:
             conn.execute(
                 """
                 INSERT OR REPLACE INTO company_research_cache (
-                    company_normalized, company_display, research_markdown, fetched_at
-                ) VALUES (?, ?, ?, CURRENT_TIMESTAMP);
+                    company_normalized, role_normalized, company_display, research_markdown, fetched_at
+                ) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP);
                 """,
-                (normalized, company.strip(), research_markdown),
+                (normalized, role.strip().lower(), company.strip(), research_markdown),
             )
 
     # -----------------------------------------------------------------------
@@ -270,7 +271,12 @@ class StorageRepository:
             return
         with self._connect() as conn:
             conn.executemany(
-                "INSERT OR IGNORE INTO candidate_facts (question, answer) VALUES (?, ?);",
+                """
+                INSERT INTO candidate_facts (question, answer) VALUES (?, ?)
+                ON CONFLICT(question) DO UPDATE SET
+                    answer = excluded.answer,
+                    created_at = CURRENT_TIMESTAMP;
+                """,
                 valid_pairs,
             )
 

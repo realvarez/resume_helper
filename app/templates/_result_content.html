@@ -566,13 +566,7 @@
     <div class="fixed bottom-0 inset-x-0 z-30 floating-dock border-t border-slate-200/80 py-3.5 px-4 shadow-lg">
         <div class="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
             <div class="flex items-center gap-2">
-                {% if draft_id %}
-                <a href="/match-review/{{ draft_id }}"
-                    class="text-xs font-semibold text-slate-600 hover:text-slate-900 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition flex items-center gap-1.5 shadow-xs">
-                    &larr; <span>Back to Step 2: Role Match</span>
-                </a>
-                {% endif %}
-                <a href="/{% if draft_id %}?draft_id={{ draft_id }}{% elif result_id %}?result_id={{ result_id }}{% endif %}"
+                <a href="/{% if result_id %}?result_id={{ result_id }}{% endif %}"
                     class="text-xs font-semibold text-slate-600 hover:text-slate-900 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition flex items-center gap-1.5 shadow-xs">
                     &larr; <span>Back to Step 1: Intake & History</span>
                 </a>

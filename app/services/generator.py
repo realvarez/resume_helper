@@ -193,14 +193,10 @@ async def generate_tailored_resume(
     storage = get_storage()
     stored_facts = storage.get_all_candidate_facts()
 
-    # Combine historical facts with current answers, preserving order and eliminating exact dupes
-    combined_answers: list[tuple[str, str]] = list(stored_facts)
+    # A current answer to an already-stored question replaces the stored one
+    combined_answers: dict[str, str] = dict(stored_facts)
     if candidate_answers:
-        existing_set = set(combined_answers)
-        for pair in candidate_answers:
-            if pair not in existing_set:
-                combined_answers.append(pair)
-                existing_set.add(pair)
+        combined_answers.update(candidate_answers)
 
     match_strategy = match_analysis.tailoring_strategy if match_analysis else None
     user_prompt = build_resume_prompt(
@@ -208,7 +204,7 @@ async def generate_tailored_resume(
         extra_context=inputs.extra_context,
         job_description=inputs.job_description,
         match_strategy=match_strategy,
-        candidate_answers=combined_answers or None,
+        candidate_answers=list(combined_answers.items()) or None,
         seniority=inputs.seniority,
     )
     messages = [
@@ -288,6 +284,7 @@ async def generate_kit_from_match(
     research_context = await build_research_context(
         company=effective_inputs.company,
         job_description=effective_inputs.job_description,
+        position=effective_inputs.position,
     )
 
     # Stage 2: Core ATS Résumé

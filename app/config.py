@@ -21,7 +21,6 @@ class Settings(BaseSettings):
 
     # App behaviour
     max_upload_bytes: int = 5 * 1024 * 1024  # 5 MB
-    results_cache_size: int = 20  # how many generated kits to keep in memory
     request_timeout: int = 300  # seconds for the LLM call
 
 

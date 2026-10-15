@@ -52,17 +52,18 @@ def _search_sync(query: str) -> list[dict]:
     return response.get("results", [])
 
 
-async def build_research_context(company: str, job_description: str) -> str:
+async def build_research_context(company: str, job_description: str, position: str = "") -> str:
     """Run all research queries in parallel; returns a formatted context block.
 
-    Returns a short note instead when no API key is configured.
+    Returns a short note instead when no API key is configured. The cache is keyed
+    by company + role because the INTERVIEW_PROCESS section is role-specific.
     """
     company_name = company.strip()
     if company_name:
         storage = get_storage()
-        cached = storage.get_cached_research(company_name, max_age_days=14)
+        cached = storage.get_cached_research(company_name, position, max_age_days=14)
         if cached:
-            logger.info("Using cached company research for %r", company_name)
+            logger.info("Using cached company research for %r (%r)", company_name, position)
             return cached
 
     settings = get_settings()
@@ -101,5 +102,5 @@ async def build_research_context(company: str, job_description: str) -> str:
         header = f"WEB RESEARCH RESULTS ({TARGET_COUNTRY} job-market snippets gathered just now):"
     result_text = header + "\n\n" + "\n\n".join(found)
     if company_name:
-        get_storage().cache_research(company_name, result_text)
+        get_storage().cache_research(company_name, position, result_text)
     return result_text

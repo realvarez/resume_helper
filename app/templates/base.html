@@ -45,7 +45,7 @@
                         <span class="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse"></span>
                     </div>
                     {% else %}
-                    <a href="/{% if draft_id %}?draft_id={{ draft_id }}{% elif result_id %}?result_id={{ result_id }}{% endif %}"
+                    <a href="/{% if result_id %}?result_id={{ result_id }}{% endif %}"
                        class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-slate-600 hover:text-indigo-600 hover:bg-slate-100 transition group">
                         <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold grid place-items-center group-hover:bg-emerald-200 transition">✓</span>
                         <span class="text-xs font-medium">1 Intake & History</span>
@@ -61,12 +61,6 @@
                         <span class="text-xs font-semibold">Role Match & Alignment</span>
                         <span class="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse"></span>
                     </div>
-                    {% elif active_step == 3 and draft_id %}
-                    <a href="/match-review/{{ draft_id }}"
-                       class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-slate-600 hover:text-indigo-600 hover:bg-slate-100 transition group">
-                        <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold grid place-items-center group-hover:bg-emerald-200 transition">✓</span>
-                        <span class="text-xs font-medium">2 Role Match & Alignment</span>
-                    </a>
                     {% else %}
                     <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-slate-400">
                         <span class="w-5 h-5 rounded-full bg-slate-200 text-slate-500 text-xs font-semibold grid place-items-center">2</span>

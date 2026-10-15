@@ -72,8 +72,9 @@ fully local setup.
 ```
 
 Open http://localhost:8000 , fill the form, and hit **Generate application kit**
-(typically 30–90 s). Results are kept in memory (last 20 runs) at shareable `/result/{id}` URLs
-for the lifetime of the server process.
+(typically 30–90 s). Every kit is saved to SQLite (`data/resume_worker.db`) at its own shareable
+`/result/{id}` URL: it survives restarts, and all of your kits are listed on the **History** page
+(http://localhost:8000/history ), where you can reopen or delete them.
 
 ## How it works
 
@@ -96,7 +97,8 @@ upload/paste ──► parse ──► web research (Tavily, optional) ──►
 
 ```
 app/
-├── main.py              # routes: / , /generate , /result/{id} , /download/{id}
+├── main.py              # routes: / , /match , /match-review/{id} , /result/{id} , /refine/{id} ,
+│                        #   /history , /download{,-bundle}/{id} , /api/parse-preview , /api/applications/{id}
 ├── config.py            # env-driven settings (.env)
 ├── schemas.py           # form inputs + ApplicationKit structured output model
 ├── prompts.py           # system & user prompts
@@ -104,14 +106,18 @@ app/
 │   ├── parser.py        # PDF/DOCX/TXT text extraction
 │   ├── research.py      # Tavily search wrapper (+ graceful no-key fallback)
 │   ├── generator.py     # pipeline orchestration, LiteLLM call, validation retry
+│   ├── storage.py       # SQLite: generated kits, in-flight drafts, intake answers, research cache
+│   ├── export.py        # download filenames, Markdown renderers, ZIP bundle
 │   └── pdf.py           # WeasyPrint HTML→PDF rendering
-├── templates/           # base / index / result / resume_pdf (ATS layout)
+├── templates/           # base / index / match_review / result / history / resume_pdf (ATS layout)
 └── static/style.css
 ```
 
 ## Notes & limitations
 
-- Results are stored in memory — restarting the server clears them. Download your PDF first.
+- Kits, in-flight drafts, your intake answers and the research cache all live in the local SQLite
+  file `data/resume_worker.db` (gitignored), so they survive a restart. Delete a kit any time from
+  the History page.
 - Generated content is AI-assisted: always review before applying.
 - The PDF uses US Letter with standard fonts (Arial), single column, no tables/graphics — the
   layout most ATS parsers handle reliably.
