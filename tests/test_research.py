@@ -65,7 +65,7 @@ async def test_build_research_context_all_queries_fail():
 async def test_build_research_context_uses_cache(monkeypatch, tmp_path):
     from app.services.storage import StorageRepository
     test_storage = StorageRepository(tmp_path / "research_cache.db")
-    test_storage.cache_research("Acme Corp", "Cached Acme Dossier")
+    test_storage.cache_research("Acme Corp", "Data Engineer", "Cached Acme Dossier")
     monkeypatch.setattr("app.services.research.get_storage", lambda: test_storage)
 
     called_search = False
@@ -76,7 +76,29 @@ async def test_build_research_context_uses_cache(monkeypatch, tmp_path):
         return []
 
     monkeypatch.setattr("app.services.research._search_sync", fake_search)
-    result = await build_research_context("Acme Corp", "Some JD")
+    result = await build_research_context("Acme Corp", "Some JD", position="Data Engineer")
     assert result == "Cached Acme Dossier"
     assert called_search is False
+
+
+@pytest.mark.asyncio
+async def test_build_research_context_cache_is_role_scoped(monkeypatch, tmp_path):
+    from app.services.storage import StorageRepository
+    test_storage = StorageRepository(tmp_path / "research_cache.db")
+    test_storage.cache_research("Acme Corp", "Data Engineer", "Cached Data Engineer Dossier")
+    monkeypatch.setattr("app.services.research.get_storage", lambda: test_storage)
+
+    def fake_search(*args, **kwargs):
+        return []
+
+    monkeypatch.setattr("app.services.research._search_sync", fake_search)
+
+    with patch("app.services.research.get_settings") as mock_settings:
+        mock_settings.return_value.tavily_api_key = "fake-key"
+        mock_settings.return_value.tavily_max_results = 2
+        result = await build_research_context("Acme Corp", "Product Manager JD", position="Product Manager")
+
+    # Different role at the same company: the cached blob must not be reused
+    assert "Cached Data Engineer Dossier" not in result
+    assert "WEB RESEARCH" in result
 

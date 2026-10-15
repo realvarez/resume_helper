@@ -47,14 +47,13 @@ def test_draft_crud(temp_storage: StorageRepository, sample_generate_inputs: Gen
 
 def test_application_crud(temp_storage: StorageRepository, sample_generate_inputs: GenerateInputs, sample_application_kit: ApplicationKit):
     # Save
-    temp_storage.save_application("res_456", sample_generate_inputs, sample_application_kit, draft_id="draft_123")
+    temp_storage.save_application("res_456", sample_generate_inputs, sample_application_kit)
 
     # Get
     app_data = temp_storage.get_application("res_456")
     assert app_data is not None
     assert app_data["inputs"].resume_text == sample_generate_inputs.resume_text
     assert app_data["kit"].tailored_resume.contact.name == sample_application_kit.tailored_resume.contact.name
-    assert app_data["draft_id"] == "draft_123"
 
     # List
     apps = temp_storage.list_applications()
@@ -77,19 +76,29 @@ def test_application_crud(temp_storage: StorageRepository, sample_generate_input
 
 
 def test_company_research_cache_ttl(temp_storage: StorageRepository):
-    temp_storage.cache_research("Shopify", "# Shopify Research Context")
+    temp_storage.cache_research("Shopify", "Data Engineer", "# Shopify Research Context")
 
-    # Cache hit (case-insensitive and trimmed)
-    cached = temp_storage.get_cached_research("  shopify  ", max_age_days=14)
+    # Cache hit (case-insensitive and trimmed on both company and role)
+    cached = temp_storage.get_cached_research("  shopify  ", " data ENGINEER ", max_age_days=14)
     assert cached == "# Shopify Research Context"
 
     # Cache miss on non-existent
-    assert temp_storage.get_cached_research("Unknown Corp") is None
+    assert temp_storage.get_cached_research("Unknown Corp", "Data Engineer") is None
 
     # Cache expiration simulation
     with temp_storage._connect() as conn:
         conn.execute("UPDATE company_research_cache SET fetched_at = datetime('now', '-15 days') WHERE company_normalized = 'shopify'")
-    assert temp_storage.get_cached_research("Shopify", max_age_days=14) is None
+    assert temp_storage.get_cached_research("Shopify", "Data Engineer", max_age_days=14) is None
+
+
+def test_company_research_cache_is_role_scoped(temp_storage: StorageRepository):
+    temp_storage.cache_research("Shopify", "Data Engineer", "# Data Engineer dossier")
+
+    # A different role at the same company must not reuse the blob
+    assert temp_storage.get_cached_research("Shopify", "Product Manager") is None
+
+    # The same role still hits
+    assert temp_storage.get_cached_research("Shopify", "Data Engineer") == "# Data Engineer dossier"
 
 
 def test_candidate_facts_accumulation(temp_storage: StorageRepository):
@@ -107,3 +116,11 @@ def test_candidate_facts_accumulation(temp_storage: StorageRepository):
         ("What was your team size?", "Led 8 engineers."),
     ])
     assert len(temp_storage.get_all_candidate_facts()) == 2
+
+
+def test_candidate_facts_new_answer_replaces_old(temp_storage: StorageRepository):
+    temp_storage.add_candidate_facts([("Do you have a PMP?", "No")])
+
+    temp_storage.add_candidate_facts([("Do you have a PMP?", "Yes, obtained 2024")])
+
+    assert temp_storage.get_all_candidate_facts() == [("Do you have a PMP?", "Yes, obtained 2024")]

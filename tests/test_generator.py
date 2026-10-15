@@ -176,3 +176,26 @@ async def test_generate_tailored_resume_merges_stored_candidate_facts(monkeypatc
     assert "Current Q" in captured_prompt
     assert "Current Ans" in captured_prompt
 
+
+@pytest.mark.asyncio
+async def test_new_answer_supersedes_the_stored_fact_for_the_same_question(monkeypatch, tmp_path, sample_generate_inputs, sample_tailored_resume):
+    from app.services.storage import StorageRepository
+    from app.services.generator import generate_tailored_resume
+
+    test_storage = StorageRepository(tmp_path / "facts.db")
+    test_storage.add_candidate_facts([("Do you have a PMP?", "OBSOLETE_ANSWER")])
+    monkeypatch.setattr("app.services.generator.get_storage", lambda: test_storage)
+
+    captured_prompt = None
+
+    async def fake_validated_call(messages, model_cls, label):
+        nonlocal captured_prompt
+        captured_prompt = messages[1]["content"]
+        return sample_tailored_resume
+
+    monkeypatch.setattr("app.services.generator._validated_llm_call", fake_validated_call)
+    await generate_tailored_resume(sample_generate_inputs, candidate_answers=[("Do you have a PMP?", "Yes, certified 2024")])
+
+    assert "Yes, certified 2024" in captured_prompt
+    assert "OBSOLETE_ANSWER" not in captured_prompt
+
